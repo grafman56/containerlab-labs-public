@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="650" viewBox="0 0 1200 650" role="img" aria-labelledby="title desc">
+  <title id="title">CIN Remote PHY transport topology</title>
+  <desc id="desc">Two RPDs connect through two RPAs and two CIN hubs. Both hubs independently connect to a vCMTS, an AAR placeholder, and two DSRs. The DSRs connect to a service endpoint.</desc>
+  <defs>
+    <style>
+      .bg { fill: #0f172a; }
+      .title { fill: #f8fafc; font: 700 28px system-ui, sans-serif; }
+      .caption { fill: #94a3b8; font: 14px system-ui, sans-serif; }
+      .label { fill: #f8fafc; font: 700 17px system-ui, sans-serif; text-anchor: middle; }
+      .sub { fill: #cbd5e1; font: 12px system-ui, sans-serif; text-anchor: middle; }
+      .line { stroke: #94a3b8; stroke-width: 3; }
+      .node { stroke-width: 2; }
+    </style>
+  </defs>
+  <rect class="bg" width="1200" height="650" rx="18"/>
+  <text x="48" y="52" class="title">CIN / Remote-PHY Transport Lab</text>
+  <text x="48" y="78" class="caption">Vendor-neutral IP transport model — current OSPF baseline; hub-attached roles are parallel, not serial</text>
+
+  <!-- RPD to RPA -->
+  <line class="line" x1="220" y1="245" x2="330" y2="245"/>
+  <line class="line" x1="220" y1="245" x2="330" y2="425"/>
+  <line class="line" x1="220" y1="425" x2="330" y2="245"/>
+  <line class="line" x1="220" y1="425" x2="330" y2="425"/>
+  <!-- RPA to hub -->
+  <line class="line" x1="450" y1="245" x2="560" y2="245"/>
+  <line class="line" x1="450" y1="245" x2="560" y2="425"/>
+  <line class="line" x1="450" y1="425" x2="560" y2="245"/>
+  <line class="line" x1="450" y1="425" x2="560" y2="425"/>
+  <!-- Hub interconnect and vCMTS -->
+  <line class="line" x1="620" y1="285" x2="620" y2="385"/>
+  <line class="line" x1="680" y1="245" x2="760" y2="155"/>
+  <line class="line" x1="680" y1="425" x2="760" y2="155"/>
+  <!-- Hub to DSR -->
+  <line class="line" x1="680" y1="245" x2="790" y2="315"/>
+  <line class="line" x1="680" y1="425" x2="790" y2="315"/>
+  <line class="line" x1="680" y1="245" x2="790" y2="455"/>
+  <line class="line" x1="680" y1="425" x2="790" y2="455"/>
+  <!-- Hub to AAR placeholder -->
+  <line class="line" x1="680" y1="245" x2="790" y2="565"/>
+  <line class="line" x1="680" y1="425" x2="790" y2="565"/>
+  <!-- DSR to service -->
+  <line class="line" x1="910" y1="315" x2="1010" y2="385"/>
+  <line class="line" x1="910" y1="455" x2="1010" y2="385"/>
+
+  <g class="node"><rect x="100" y="215" width="120" height="60" rx="10" fill="#0c4a6e" stroke="#38bdf8"/><text x="160" y="240" class="label">rpd1</text><text x="160" y="260" class="sub">field RPD role</text></g>
+  <g class="node"><rect x="100" y="395" width="120" height="60" rx="10" fill="#0c4a6e" stroke="#38bdf8"/><text x="160" y="420" class="label">rpd2</text><text x="160" y="440" class="sub">field RPD role</text></g>
+  <g class="node"><rect x="330" y="215" width="120" height="60" rx="10" fill="#075985" stroke="#38bdf8"/><text x="390" y="240" class="label">rpa1</text><text x="390" y="260" class="sub">RPD aggregation</text></g>
+  <g class="node"><rect x="330" y="395" width="120" height="60" rx="10" fill="#075985" stroke="#38bdf8"/><text x="390" y="420" class="label">rpa2</text><text x="390" y="440" class="sub">RPD aggregation</text></g>
+  <g class="node"><rect x="560" y="215" width="120" height="60" rx="10" fill="#1e3a8a" stroke="#818cf8"/><text x="620" y="240" class="label">hub1</text><text x="620" y="260" class="sub">CIN hub/core</text></g>
+  <g class="node"><rect x="560" y="395" width="120" height="60" rx="10" fill="#1e3a8a" stroke="#818cf8"/><text x="620" y="420" class="label">hub2</text><text x="620" y="440" class="sub">CIN hub/core</text></g>
+  <g class="node"><rect x="760" y="125" width="120" height="60" rx="10" fill="#6d28d9" stroke="#c4b5fd"/><text x="820" y="150" class="label">vcmts</text><text x="820" y="170" class="sub">CMTS/CCAP core</text></g>
+  <g class="node"><rect x="790" y="285" width="120" height="60" rx="10" fill="#92400e" stroke="#fbbf24"/><text x="850" y="310" class="label">dsr1</text><text x="850" y="330" class="sub">data service router</text></g>
+  <g class="node"><rect x="790" y="425" width="120" height="60" rx="10" fill="#92400e" stroke="#fbbf24"/><text x="850" y="450" class="label">dsr2</text><text x="850" y="470" class="sub">data service router</text></g>
+  <g class="node"><rect x="790" y="535" width="120" height="60" rx="10" fill="#14532d" stroke="#86efac"/><text x="850" y="560" class="label">aar1</text><text x="850" y="580" class="sub">AAR placeholder</text></g>
+  <g class="node"><rect x="1010" y="355" width="130" height="60" rx="10" fill="#166534" stroke="#86efac"/><text x="1075" y="380" class="label">service</text><text x="1075" y="400" class="sub">northbound endpoint</text></g>
+
+  <text x="600" y="625" class="caption" text-anchor="middle">CMTS, RPA, AAR, and DSR are separate dual-homed hub branches; only DSR currently has a generic service endpoint.</text>
+</svg>

@@ -1,0 +1,19 @@
+# containerlab runtime artifacts
+clab-*/
+*/runtime/
+*.log
+__pycache__/
+.venv/
+**/.env
+**/ansible.cfg
+**/ansible-inventory.yml
+**/hosts.yml
+**/group_vars/
+**/host_vars/
+**/clab.yml
+**/clab_files/
+**/node_files/
+**/netlab.snapshot.pickle
+**/netlab.lock
+**/config/
+.tmp/

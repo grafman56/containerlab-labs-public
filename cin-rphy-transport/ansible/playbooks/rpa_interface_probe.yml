@@ -1,0 +1,32 @@
+---
+# Read-only RPA probe. The RPD association is declared topology intent; the
+# interface address and operational state are collected live from each RPA.
+- name: Report RPA RPD-facing interface addresses and state
+  hosts: rpas
+  gather_facts: false
+
+  tasks:
+    - name: Collect IPv4 interface state from the RPA container
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - "{{ rpa_container }}"
+          - ip
+          - -j
+          - -4
+          - addr
+          - show
+      register: rpa_ip_addr
+      changed_when: false
+
+    - name: Build the RPA to RPD interface report
+      ansible.builtin.set_fact:
+        rpa_rpd_probe_rows: >-
+          {{ (rpa_ip_addr.stdout | from_json) | rpa_probe_rows(rpa_rpd_interfaces) }}
+
+    - name: Show the RPA to RPD interface report
+      ansible.builtin.debug:
+        msg:
+          rpa: "{{ inventory_hostname }}"
+          rpd_facing_interfaces: "{{ rpa_rpd_probe_rows }}"

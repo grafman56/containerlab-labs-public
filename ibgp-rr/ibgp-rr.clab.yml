@@ -1,0 +1,56 @@
+name: ibgp-rr
+
+# Explicit management subnet. Choose a different subnet if this range overlaps
+# a Docker network on the target host.
+mgmt:
+  network: clab-ibgp-rr
+  ipv4-subnet: 172.100.100.0/24
+  ipv6-subnet: 3fff:172:100:100::/64
+
+topology:
+  defaults:
+    kind: linux
+    image: quay.io/frrouting/frr:10.7.0
+
+  nodes:
+    rr1:
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/rr1.conf:/etc/frr/frr.conf
+        - runtime/rr1:/var/run/frr
+    rr2:
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/rr2.conf:/etc/frr/frr.conf
+        - runtime/rr2:/var/run/frr
+    p1:
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/p1.conf:/etc/frr/frr.conf
+        - runtime/p1:/var/run/frr
+    p2:
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/p2.conf:/etc/frr/frr.conf
+        - runtime/p2:/var/run/frr
+    p3:
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/p3.conf:/etc/frr/frr.conf
+        - runtime/p3:/var/run/frr
+    e1:
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/e1.conf:/etc/frr/frr.conf
+        - runtime/e1:/var/run/frr
+
+  links:
+    - endpoints: ["rr1:eth1", "rr2:eth1"]
+    - endpoints: ["rr1:eth2", "p1:eth1"]
+    - endpoints: ["rr1:eth3", "p2:eth1"]
+    - endpoints: ["rr1:eth4", "p3:eth1"]
+    - endpoints: ["rr2:eth2", "p1:eth2"]
+    - endpoints: ["rr2:eth3", "p2:eth2"]
+    - endpoints: ["rr2:eth4", "p3:eth2"]
+    - endpoints: ["p2:eth3", "p3:eth3"]
+    - endpoints: ["p1:eth3", "e1:eth1"]

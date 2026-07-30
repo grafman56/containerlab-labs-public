@@ -1,0 +1,62 @@
+name: evpn-vxlan
+
+mgmt:
+  network: clab-evpn-vxlan
+  ipv4-subnet: 172.100.110.0/24
+  ipv6-subnet: 3fff:172:100:110::/64
+
+topology:
+  defaults:
+    kind: linux
+
+  nodes:
+    spine1:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/spine1.conf:/etc/frr/frr.conf
+        - runtime/spine1:/var/run/frr
+    spine2:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/spine2.conf:/etc/frr/frr.conf
+        - runtime/spine2:/var/run/frr
+    leaf1:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/leaf1.conf:/etc/frr/frr.conf
+        - scripts/setup-leaf1.sh:/setup-leaf.sh:ro
+        - runtime/leaf1:/var/run/frr
+      exec:
+        - bash /setup-leaf.sh
+    leaf2:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/leaf2.conf:/etc/frr/frr.conf
+        - scripts/setup-leaf2.sh:/setup-leaf.sh:ro
+        - runtime/leaf2:/var/run/frr
+      exec:
+        - bash /setup-leaf.sh
+    host1:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.10.10.11/24 dev eth1
+    host2:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.10.10.12/24 dev eth1
+
+  links:
+    - endpoints: ["spine1:eth1", "leaf1:eth1"]
+    - endpoints: ["spine1:eth2", "leaf2:eth1"]
+    - endpoints: ["spine2:eth1", "leaf1:eth2"]
+    - endpoints: ["spine2:eth2", "leaf2:eth2"]
+    - endpoints: ["leaf1:eth3", "host1:eth1"]
+    - endpoints: ["leaf2:eth3", "host2:eth1"]

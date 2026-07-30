@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ -n "${CLAB:-}" ]]; then
+  clab=$CLAB
+elif command -v containerlab >/dev/null 2>&1; then
+  clab=$(command -v containerlab)
+else
+  clab="$HOME/.local/bin/containerlab"
+fi
+
+if [[ ! -x "$clab" ]]; then
+  printf 'Containerlab binary not found: %s\n' "$clab" >&2
+  exit 127
+fi
+
+topology=evpn-vxlan.clab.yml
+lab=evpn-vxlan
+
+usage() {
+  printf 'Usage: %s {check|up|verify|status|down}\n' "$0" >&2
+}
+
+case "${1:-}" in
+  check)
+    ../validate-repository.sh
+    ;;
+  up)
+    docker pull quay.io/frrouting/frr:10.7.0
+    docker pull alpine:3.20
+    sudo -n "$clab" deploy -t "$topology"
+    ;;
+  verify)
+    ./verify.sh
+    ;;
+  status)
+    docker ps --filter "name=clab-${lab}-" --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}'
+    ;;
+  down)
+    sudo -n "$clab" destroy -t "$topology" --cleanup
+    ;;
+  *)
+    usage
+    exit 2
+    ;;
+esac

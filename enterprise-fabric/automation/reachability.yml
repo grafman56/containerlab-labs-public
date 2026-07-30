@@ -1,0 +1,18 @@
+---
+- name: Validate production-style management services
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Check SSH management port
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: "{{ ansible_port | default(22) }}"
+        timeout: 10
+      delegate_to: localhost
+
+    - name: Check gNMI telemetry port
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: 57400
+        timeout: 10
+      delegate_to: localhost

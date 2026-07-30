@@ -1,0 +1,61 @@
+name: cin-rphy-transport
+
+# This is an IP transport lab for a distributed-access/CIN design.  The RPD
+# and vCMTS labels describe roles; these are Linux/FRR stand-ins, not DOCSIS
+# PHY, GCP, or R-DEPI implementations.
+mgmt:
+  network: clab-cin-rphy-transport
+  ipv4-subnet: 172.103.100.0/24
+  ipv6-subnet: 3fff:172:103:100::/64
+
+topology:
+  defaults:
+    kind: linux
+    image: quay.io/frrouting/frr:10.7.0
+    binds:
+      - configs/daemons:/etc/frr/daemons
+
+  nodes:
+    hub1:
+      binds: [configs/daemons:/etc/frr/daemons, configs/hub1.conf:/etc/frr/frr.conf, runtime/hub1:/var/run/frr]
+    hub2:
+      binds: [configs/daemons:/etc/frr/daemons, configs/hub2.conf:/etc/frr/frr.conf, runtime/hub2:/var/run/frr]
+    rpa1:
+      binds: [configs/daemons:/etc/frr/daemons, configs/rpa1.conf:/etc/frr/frr.conf, runtime/rpa1:/var/run/frr]
+    rpa2:
+      binds: [configs/daemons:/etc/frr/daemons, configs/rpa2.conf:/etc/frr/frr.conf, runtime/rpa2:/var/run/frr]
+    dsr1:
+      binds: [configs/daemons:/etc/frr/daemons, configs/dsr1.conf:/etc/frr/frr.conf, runtime/dsr1:/var/run/frr]
+    dsr2:
+      binds: [configs/daemons:/etc/frr/daemons, configs/dsr2.conf:/etc/frr/frr.conf, runtime/dsr2:/var/run/frr]
+    aar1:
+      binds: [configs/daemons:/etc/frr/daemons, configs/aar1.conf:/etc/frr/frr.conf, runtime/aar1:/var/run/frr]
+    rpd1:
+      binds: [configs/daemons:/etc/frr/daemons, configs/rpd1.conf:/etc/frr/frr.conf, runtime/rpd1:/var/run/frr]
+    rpd2:
+      binds: [configs/daemons:/etc/frr/daemons, configs/rpd2.conf:/etc/frr/frr.conf, runtime/rpd2:/var/run/frr]
+    vcmts:
+      binds: [configs/daemons:/etc/frr/daemons, configs/vcmts.conf:/etc/frr/frr.conf, runtime/vcmts:/var/run/frr]
+    service:
+      binds: [configs/daemons:/etc/frr/daemons, configs/service.conf:/etc/frr/frr.conf, runtime/service:/var/run/frr]
+
+  links:
+    - endpoints: ["hub1:eth1", "hub2:eth1"]
+    - endpoints: ["hub1:eth2", "rpa1:eth1"]
+    - endpoints: ["hub2:eth2", "rpa1:eth2"]
+    - endpoints: ["hub1:eth3", "rpa2:eth1"]
+    - endpoints: ["hub2:eth3", "rpa2:eth2"]
+    - endpoints: ["hub1:eth4", "vcmts:eth1"]
+    - endpoints: ["hub2:eth4", "vcmts:eth2"]
+    - endpoints: ["hub1:eth5", "dsr1:eth1"]
+    - endpoints: ["hub2:eth5", "dsr1:eth2"]
+    - endpoints: ["hub1:eth6", "dsr2:eth1"]
+    - endpoints: ["hub2:eth6", "dsr2:eth2"]
+    - endpoints: ["hub1:eth7", "aar1:eth1"]
+    - endpoints: ["hub2:eth7", "aar1:eth2"]
+    - endpoints: ["rpa1:eth3", "rpd1:eth1"]
+    - endpoints: ["rpa2:eth3", "rpd1:eth2"]
+    - endpoints: ["rpa1:eth4", "rpd2:eth1"]
+    - endpoints: ["rpa2:eth4", "rpd2:eth2"]
+    - endpoints: ["dsr1:eth3", "service:eth1"]
+    - endpoints: ["dsr2:eth3", "service:eth2"]

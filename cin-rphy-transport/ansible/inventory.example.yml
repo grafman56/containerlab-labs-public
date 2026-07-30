@@ -1,0 +1,19 @@
+all:
+  vars:
+    ansible_connection: ssh
+    ansible_user: replace-with-your-ssh-user
+  children:
+    rpas:
+      hosts:
+        rpa1:
+          ansible_host: replace-with-your-containerlab-host
+          rpa_container: clab-cin-rphy-transport-rpa1
+          rpa_rpd_interfaces:
+            eth3: rpd1
+            eth4: rpd2
+        rpa2:
+          ansible_host: replace-with-your-containerlab-host
+          rpa_container: clab-cin-rphy-transport-rpa2
+          rpa_rpd_interfaces:
+            eth3: rpd1
+            eth4: rpd2

@@ -1,0 +1,69 @@
+name: sdwan-dual-transport
+
+# A self-contained SD-WAN mechanics lab. Management is deliberately isolated
+# from all data-plane addressing used below.
+mgmt:
+  network: clab-sdwan-dual-transport
+  ipv4-subnet: 172.102.100.0/24
+  ipv6-subnet: 3fff:172:102:100::/64
+
+topology:
+  defaults:
+    kind: linux
+    image: quay.io/frrouting/frr:10.7.0
+    binds:
+      - configs/daemons:/etc/frr/daemons
+
+  nodes:
+    branch1:
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/branch1.conf:/etc/frr/frr.conf
+        - runtime/branch1:/var/run/frr
+      exec:
+        - ip tunnel add tun-isp-a mode gre local 100.64.1.2 remote 100.64.10.2 ttl 255
+        - ip addr add 172.31.1.1/30 dev tun-isp-a
+        - ip link set tun-isp-a mtu 1400 up
+        - ip tunnel add tun-isp-b mode gre local 100.64.2.2 remote 100.64.20.2 ttl 255
+        - ip addr add 172.31.2.1/30 dev tun-isp-b
+        - ip link set tun-isp-b mtu 1400 up
+    hub1:
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/hub1.conf:/etc/frr/frr.conf
+        - runtime/hub1:/var/run/frr
+      exec:
+        - ip tunnel add tun-isp-a mode gre local 100.64.10.2 remote 100.64.1.2 ttl 255
+        - ip addr add 172.31.1.2/30 dev tun-isp-a
+        - ip link set tun-isp-a mtu 1400 up
+        - ip tunnel add tun-isp-b mode gre local 100.64.20.2 remote 100.64.2.2 ttl 255
+        - ip addr add 172.31.2.2/30 dev tun-isp-b
+        - ip link set tun-isp-b mtu 1400 up
+    isp-a:
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/isp-a.conf:/etc/frr/frr.conf
+        - runtime/isp-a:/var/run/frr
+    isp-b:
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/isp-b.conf:/etc/frr/frr.conf
+        - runtime/isp-b:/var/run/frr
+    corp-client:
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/corp-client.conf:/etc/frr/frr.conf
+        - runtime/corp-client:/var/run/frr
+    dc-app:
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/dc-app.conf:/etc/frr/frr.conf
+        - runtime/dc-app:/var/run/frr
+
+  links:
+    - endpoints: ["corp-client:eth1", "branch1:eth1"]
+    - endpoints: ["branch1:eth2", "isp-a:eth1"]
+    - endpoints: ["branch1:eth3", "isp-b:eth1"]
+    - endpoints: ["isp-a:eth2", "hub1:eth2"]
+    - endpoints: ["isp-b:eth2", "hub1:eth3"]
+    - endpoints: ["hub1:eth1", "dc-app:eth1"]
