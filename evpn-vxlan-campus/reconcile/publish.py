@@ -281,8 +281,8 @@ def main(argv):
         for user, ip in stale:
             panos_send(pan, dry=dry, logout=[(user, ip)] if user else (),
                        unregister=[(ip, [])])
-        print("sent %d endpoint(s) and %d expiry(ies) to %s" % (
-            len(wanted), len(stale), pan))
+        print("%s %d endpoint(s) and %d expiry(ies) to %s" % (
+            "would send" if dry else "sent", len(wanted), len(stale), pan))
 
     if "--enforce" in argv:
         enforce(dry=dry)
