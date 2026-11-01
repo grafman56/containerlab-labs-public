@@ -140,7 +140,47 @@ def main():
     clean_fw = {"10.10.10.100": fw["10.10.10.100"]}
     assert reconcile(clean_fab, clean_nac, clean_lease, clean_fw, NOW) == []
 
+    check_panos()
     print("ok")
+
+
+def check_panos():
+    """The PAN-OS leg: message building, parsing, and the opt-in switch."""
+    import os
+    import panos
+    import publish
+    from xml.etree.ElementTree import fromstring
+
+    msg = fromstring(panos.uid_message(
+        login=[("jsmith@campus.edu", "10.10.10.100")],
+        register=[("10.10.10.100", ["role:staff", "bldg:howard-tilton"])],
+        unregister=[("10.10.10.101", [])]))
+    assert msg.find("payload/login/entry").attrib == {
+        "name": "jsmith@campus.edu", "ip": "10.10.10.100"}
+    assert [m.text for m in msg.findall("payload/register/entry/tag/member")] == [
+        "role:staff", "bldg:howard-tilton"]
+    # No tags means "drop every tag on this address": no <tag> element at all.
+    assert msg.find("payload/unregister/entry/tag") is None
+    # Empty verbs are left out rather than sent empty.
+    assert fromstring(panos.uid_message(login=[("u", "1.1.1.1")])).find("payload/register") is None
+
+    maps = ('<response status="success"><result><entry><ip>10.10.10.100</ip>'
+            '<user>jsmith@campus.edu</user></entry><count>1</count></result></response>')
+    assert panos.parse_mappings(maps) == {"10.10.10.100": "jsmith@campus.edu"}
+    tags = ('<response status="success"><result><entry><ip>10.10.10.100</ip>'
+            '<tag><member>role:staff</member></tag></entry><count>1</count></result></response>')
+    assert panos.parse_tags(tags) == {"10.10.10.100": {"role:staff"}}
+
+    # Without the flag or the variable, publish.py does nothing extra.
+    os.environ.pop("PANOS_URL", None)
+    assert publish.panos_target(["--expire"]) is None
+    assert publish.panos_target(["--panos", "http://x:8080"]) == "http://x:8080"
+    assert publish.panos_target(["--panos=http://y:8080"]) == "http://y:8080"
+    os.environ["PANOS_URL"] = "http://z:8080"
+    try:
+        assert publish.panos_target([]) == "http://z:8080"
+    finally:
+        del os.environ["PANOS_URL"]
 
 
 if __name__ == "__main__":

@@ -17,15 +17,21 @@ reconcile.py afterwards and the stale entry is sitting there.
   --expire  remove mappings with no live session. The fix, so the difference
             between the two runs is visible rather than described.
   --flush   drop the whole table, to start a walk-through clean.
+  --panos URL  also send each login and tag to a PAN-OS XML API (the
+            panos-emulator lab, or a firewall). Optional: without it nothing
+            here changes and the nftables firewall is the only target. Set
+            PANOS_KEY if the API needs a key. --expire and --flush apply to it too.
   --enforce install one counter rule per tag, so you can watch policy match
             on "staff in Howard-Tilton" with no prefix in the rule.
 """
 
+import os
 import re
 import subprocess
 import sys
 import time
 
+import panos
 import registers as R
 import whereis
 
@@ -151,13 +157,48 @@ def tag_sets(dry=False):
             if o.get("set", {}).get("name", "").startswith("tag_")]
 
 
+def panos_target(argv):
+    """The --panos URL (or PANOS_URL), or None. None means do nothing extra."""
+    for i, arg in enumerate(argv):
+        if arg == "--panos" and i + 1 < len(argv):
+            return argv[i + 1]
+        if arg.startswith("--panos="):
+            return arg.split("=", 1)[1]
+    return os.environ.get("PANOS_URL") or None
+
+
+def panos_send(url, dry=False, **kwargs):
+    """Send one uid-message. A firewall that is down must not undo the nft
+    publication that already happened, so failure is reported, not raised."""
+    if dry:
+        print("would send to %s: %s" % (url, panos.uid_message(**kwargs)))
+        return True
+    try:
+        panos.send(url, os.environ.get("PANOS_KEY", ""), **kwargs)
+        return True
+    except Exception as error:
+        print("panos update failed: %s" % error, file=sys.stderr)
+        return False
+
+
 def main(argv):
     dry = "--dry-run" in argv
     now = int(time.time())
+    pan = panos_target(argv)
 
     if "--flush" in argv:
         nft("delete", "table", *TABLE, dry=dry)
         print("flushed inet userid on %s" % FW)
+        if pan and not dry:
+            try:
+                key = os.environ.get("PANOS_KEY", "")
+                for ip, user in sorted(panos.mappings(pan, key).items()):
+                    panos_send(pan, logout=[(user, ip)])
+                for ip in sorted(panos.tags(pan, key)):
+                    panos_send(pan, unregister=[(ip, [])])
+                print("flushed User-ID tables on %s" % pan)
+            except Exception as error:
+                print("panos flush failed: %s" % error, file=sys.stderr)
         if "--expire" not in argv:
             return 0
 
@@ -171,6 +212,7 @@ def main(argv):
     eps = whereis.collect(now)
 
     added = kept = 0
+    wanted = {}  # ip -> (user or None, tags), for --panos
     for mac, s in sorted(nacs.items()):
         if not s["live"]:
             continue
@@ -187,11 +229,14 @@ def main(argv):
             # what it is worth. User-based rules for visitors are not
             # available, by design, not by omission.
             pass
+        ep = eps.get(mac, {})
+        tags = tags_for(ep, s["expected_role"])
+        # Remember every live endpoint for the PAN-OS leg, including those the
+        # nftables firewall already has: the two firewalls are separate.
+        wanted[lease["ip"]] = (None if s["anonymous"] else s["user"], tags)
         if fw.get(lease["ip"], {}).get("role") == s["expected_role"]:
             kept += 1
             continue
-        ep = eps.get(mac, {})
-        tags = tags_for(ep, s["expected_role"])
         comment = "user=%s,mac=%s,ts=%d,vrf=%s" % (
             s["user"], mac, now, lease["vrf"])
         if nft("add", "element", TABLE[0], TABLE[1],
@@ -208,6 +253,7 @@ def main(argv):
                 "{ %s }" % lease["ip"], dry=dry)
 
     removed = 0
+    stale = []
     if "--expire" in argv:
         for ip, pub in sorted(fw.items()):
             s = nacs.get(pub["mac"])
@@ -223,6 +269,20 @@ def main(argv):
                         "{ %s }" % ip, dry=dry)
                 print("expired   %-15s role=%-7s %s" % (
                     ip, pub["role"], pub["user"] or "-"))
+                stale.append((pub["user"], ip))
+
+    if pan:
+        for ip, (user, tags) in sorted(wanted.items()):
+            # No login for an anonymous roaming user: there is no real name to
+            # map. The address still gets its tags, which is all a dynamic
+            # address group needs.
+            panos_send(pan, dry=dry, login=[(user, ip)] if user else (),
+                       register=[(ip, tags)])
+        for user, ip in stale:
+            panos_send(pan, dry=dry, logout=[(user, ip)] if user else (),
+                       unregister=[(ip, [])])
+        print("sent %d endpoint(s) and %d expiry(ies) to %s" % (
+            len(wanted), len(stale), pan))
 
     if "--enforce" in argv:
         enforce(dry=dry)

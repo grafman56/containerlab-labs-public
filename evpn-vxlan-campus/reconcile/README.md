@@ -276,6 +276,29 @@ Worth knowing generally: a counter reading zero means *nothing arrived*, which
 is a different claim from *the rule does not match*. Confirm traffic took the
 path before concluding anything about policy.
 
+## Optional: send the same publication to a PAN-OS API
+
+`publish.py` can also send each login and tag to a PAN-OS XML API: the
+`panos-emulator` lab (a separate project), or a real firewall. It is off by default. Without the flag, nothing changes and the nftables firewall is the only target.
+
+```sh
+# in the panos-emulator project
+python3 panos_emulator.py                      # listens on :8080
+
+# here
+./labctl publish --panos http://127.0.0.1:8080
+PANOS_KEY=... ./labctl publish --panos http://fw:443   # when the API needs a key
+```
+
+What it sends, per live NAC session that has a DHCP lease:
+
+- a `login` mapping of IP to user, except for anonymous roaming users, who have no real name to map;
+- a `register` of the role, site, building, closet, VRF and VNI tags on the IP.
+
+`--expire` sends `logout` and `unregister` for mappings with no live session. `--flush` clears the PAN-OS User-ID tables too. `--dry-run` prints the messages instead of sending them. If the API is down, the nftables publication still happens and the failure is printed.
+
+Read the result back with `show user ip-user-mapping` and `show object registered-ip`. `reconcile.py` still reads only the nftables firewall.
+
 ## What the firewall register is, and is not
 
 A PAN-OS **dynamic address group is a set of addresses with a tag.** It
