@@ -12,35 +12,35 @@ Each lab pins its container images. The FRR labs use FRR 10.7.0.
 
 ## Labs
 
-- `ibgp-rr/`: OSPF underlay, redundant iBGP route reflectors, and an eBGP edge.
-- `evpn-vxlan/`: two-spine, two-leaf EVPN/VXLAN fabric.
-- `sdwan-dual-transport/`: dual ISP transport with GRE overlays and failover.
-- `cin-rphy-transport/`: redundant Remote PHY transport and a read-only Ansible probe.
-- `enterprise-fabric/`: netlab-managed SR Linux fabric with optional telemetry.
-- `evpn-vxlan-fabric/`: ten-leaf EVPN/VXLAN data-center fabric with a spine pair.
-- `evpn-vxlan-ospf/`: the same overlay over an OSPF underlay.
-- `evpn-vxlan-campus/`: two-site campus fabric with NAC, DDI, firewall identity publication, and a read-only reconciliation tool.
-- `modbus-tcp/`: Modbus simulator, OpenPLC Runtime, and a PLC-controlled tank process.
-- `docsis-pnm-poc/`: runner for a locally built CableLabs ns-3 DOCSIS image.
-- `break-tests/`: troubleshooting drills with runbooks and device transcripts for `ibgp-rr`.
-- `wireless-radius-8021x/`: virtual Wi-Fi AP, supplicant, and FreeRADIUS authentication.
+| Lab | What it shows |
+| --- | --- |
+| **Routing** | |
+| `ibgp-rr/` | OSPF underlay, redundant iBGP route reflectors, eBGP ISP edge, access VLANs 120-122, Ansible policy templates |
+| `sdwan-dual-transport/` | Two ISP transports, GRE overlays, eBGP, policy-based failover |
+| `break-tests/` | Troubleshooting drills for `ibgp-rr`: fault, runbook, and device transcript |
+| **EVPN-VXLAN** (see the VLAN-to-VNI note in each README) | |
+| `evpn-vxlan/` | 2 spines, 2 leaves, eBGP underlay, symmetric IRB, BGP policy |
+| `evpn-vxlan-ospf/` | Same overlay over an OSPF underlay, with an external eBGP edge |
+| `evpn-vxlan-fabric/` | 4 spines, 10 leaves |
+| `evpn-vxlan-campus/` | Two-site campus: NAC, DHCP/DNS, firewall identity publication, read-only reconciliation tool |
+| **Other** | |
+| `enterprise-fabric/` | netlab-managed SR Linux fabric with gNMI telemetry (Telegraf, InfluxDB, Grafana) |
+| `cin-rphy-transport/` | Remote PHY cable transport with a read-only Ansible probe |
+| `wireless-radius-8021x/` | Virtual Wi-Fi AP and supplicant with FreeRADIUS (WPA2-Enterprise) |
+| `modbus-tcp/` | Modbus simulator, OpenPLC Runtime, PLC-controlled tank process |
+| `docsis-pnm-poc/` | Runner for a locally built CableLabs ns-3 DOCSIS image |
 
-## Lab driver
+## Run a lab
 
-`./labctl list` shows every lab. `./labctl up <lab>`, `verify`, and `down` run the lifecycle for one lab. `labs.toml` is the registry; see `docs/lifecycle.md`.
-
-## Start a lab
-
-Read the lab README before deployment. The FRR labs use this lifecycle:
+`labs.toml` lists every lab. `./labctl` reads it (details in `docs/lifecycle.md`):
 
 ```bash
-cd ibgp-rr
-sudo -E containerlab deploy -t ibgp-rr.clab.yml
-./verify.sh
-sudo -E containerlab destroy -t ibgp-rr.clab.yml --cleanup
+./labctl list
+./labctl up ibgp-rr       # deploy, then run verify.sh
+./labctl down ibgp-rr     # destroy only this lab
 ```
 
-Run only the deploy and destroy commands for the lab that you selected. Do not use broad Docker cleanup commands on a host that runs other workloads.
+`enterprise-fabric` uses netlab, and `wireless-radius-8021x` loads a kernel module, so read their READMEs first. Do not run broad Docker cleanup commands on a host that runs other workloads.
 
 ## Static checks
 
