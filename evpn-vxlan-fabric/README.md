@@ -1,6 +1,6 @@
 # FRR EVPN-VXLAN: 4 Spines, 10 Leaves
 
-> **Caveat: VLAN-to-VNI mapping.** A VLAN ID is local to one switch. A VNI is the fabric-wide segment ID. A real EVPN-VXLAN fabric needs an explicit VLAN-to-VNI mapping on every leaf (for example VLAN 10 on leaf1 and VLAN 110 on leaf2 can both map to VNI 1010). These labs do not model VLAN IDs on access ports. Each host port joins a Linux bridge that is bound to exactly one VNI, so the mapping is implied by the bridge. Build or extend the lab with an explicit VLAN-to-VNI table before you use it to explain VLAN design. Where the anycast gateway and border sit (leaf or spine) is a separate design choice.
+> **Limitation: no VLAN-to-VNI mapping.** Containerlab runs FRR on the host's Linux kernel, so these labs use the traditional VXLAN model: one VXLAN device per VNI, each in its own non-VLAN-aware bridge. There is no VLAN-to-VNI mapping table as on a hardware leaf, and host ports are untagged. Treat a bridge and its VNI as the "VLAN". See [FRR EVPN: VLAN-aware bridges and single VXLAN devices](https://docs.frrouting.org/en/stable-10.7/evpn.html).
 
 A larger Clos fabric than `evpn-vxlan/` (2 spines, 2 leaves): a routed eBGP
 underlay, full-mesh loopback-based eBGP EVPN sessions between every leaf
