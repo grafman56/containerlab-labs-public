@@ -28,7 +28,9 @@
 10.10.10.21     # edge-a1      -- wired 802.1X authenticator
 
 # Plain servers on access ports, predating the identity edge.
-leaf1a/eth5     # host1
+leaf1a/eth3     # host1
+leaf2a/eth3     # host2
+leaf1a/eth5     # ddi -- relay-side port
 leaf2a/eth5     # fed -- eduroam roaming operator
 leaf2a/eth6     # idp-remote
 leaf2a/eth7     # ddi

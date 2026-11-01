@@ -143,6 +143,12 @@ def main():
     clean_fw = {"10.10.10.100": fw["10.10.10.100"]}
     assert reconcile(clean_fab, clean_nac, clean_lease, clean_fw, NOW) == []
 
+    # An authenticator's own MAC is exempt, so it is not reported as rogue.
+    ap = {("TENANT-A", "02:00:00:00:00:99"): dict(FABRIC[("TENANT-A", "aa:c1:ab:fe:fc:8a")],
+                                                  mac="02:00:00:00:00:99", fabric_ip="")}
+    assert "UNAUTHENTICATED" in codes(reconcile(ap, {}, {}, {}, NOW), "02:00:00:00:00:99")
+    assert reconcile(ap, {}, {}, {}, NOW, {"02:00:00:00:00:99"}) == []
+
     check_panos()
     check_prometheus()
     print("ok")

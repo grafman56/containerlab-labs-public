@@ -194,7 +194,7 @@ def reconcile(fab, nacs, leases, fw, now, infra=frozenset()):
             continue
         if m in nacs:
             continue
-        if e.get("fabric_ip") in infra:
+        if e.get("fabric_ip") in infra or m in infra:
             continue
         if "%s/%s" % (e["leaf"], e.get("port", "")) in infra:
             continue
@@ -277,7 +277,7 @@ def main(argv):
             return 3
     else:
         fw = R.firewall()
-    findings = reconcile(fab, nacs, leases, fw, now, R.infra())
+    findings = reconcile(fab, nacs, leases, fw, now, R.infra() | R.infra_macs())
     lat = latencies(nacs, fw)
 
     if "--prometheus" in argv:

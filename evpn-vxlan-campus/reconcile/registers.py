@@ -80,6 +80,23 @@ def infra(path=None):
     return out
 
 
+def infra_macs(nodes=("ap-a1", "edge-a1")):
+    """MACs of the authenticators themselves, read from the running nodes.
+
+    The AP and the access switch cannot sit behind their own 802.1X, and their
+    MACs change on every deploy, so they cannot live in infra.txt. A real job
+    reads these from IPAM reservations; this reads the interfaces instead.
+    """
+    out = set()
+    for name in nodes:
+        for line in dexec(name, "ip", "-o", "link").split("\n"):
+            parts = line.split("link/ether ")
+            if len(parts) > 1:
+                out.add(mac(parts[1].split()[0]))
+    out.discard("")
+    return out
+
+
 def node(name):
     return "clab-%s-%s" % (LAB, name)
 
