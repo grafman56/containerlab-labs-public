@@ -39,6 +39,8 @@ topologies = [
 ]
 
 ansible_templates = [
+    Path("ansible/containerlab-operations.yml"),
+    Path("ansible/inventory.example.yml"),
     Path("ibgp-rr/ansible/inventory.example.yml"),
     Path("ibgp-rr/ansible/playbooks/edge_policy.yml"),
     Path("ibgp-rr/ansible/playbooks/access_fabric.yml"),

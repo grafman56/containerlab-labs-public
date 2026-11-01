@@ -1,0 +1,70 @@
+---
+# Inspect, deploy, verify, or destroy ONE lab on a Containerlab host.
+# The play runs ./labctl from a checkout of this repository on that host,
+# so labs.toml stays the only list of labs. There is no "all labs" operation.
+#
+#   ansible-playbook -i inventory.yml containerlab-operations.yml \
+#     -e containerlab_operation=deploy -e containerlab_lab=ibgp-rr
+#
+# Operations: inspect (lab optional), deploy (up, then verify), verify, destroy.
+- name: Operate one Containerlab lab
+  hosts: containerlab_hosts
+  gather_facts: false
+
+  vars:
+    # Checkout of this repository on the Containerlab host.
+    containerlab_source: "~/containerlab-labs-public"
+
+  tasks:
+    - name: Check the requested operation
+      ansible.builtin.assert:
+        that:
+          - containerlab_operation is defined
+          - containerlab_operation in ['inspect', 'deploy', 'verify', 'destroy']
+          - containerlab_operation == 'inspect' or containerlab_lab is defined
+        fail_msg: >-
+          Set containerlab_operation to inspect, deploy, verify, or destroy.
+          All except inspect also need containerlab_lab (a name from labs.toml).
+
+    - name: Check that the checkout exists
+      ansible.builtin.stat:
+        path: "{{ containerlab_source }}/labctl"
+      register: containerlab_labctl
+
+    - name: Stop if the checkout is missing
+      ansible.builtin.assert:
+        that: containerlab_labctl.stat.exists
+        fail_msg: "No labctl in {{ containerlab_source }}. Clone the repository there or set containerlab_source."
+
+    - name: Inspect
+      ansible.builtin.command:
+        argv: "{{ ['./labctl', 'status'] + ([containerlab_lab] if containerlab_lab is defined else []) }}"
+        chdir: "{{ containerlab_source }}"
+      changed_when: false
+      when: containerlab_operation == 'inspect'
+
+    - name: Check the host before a deploy
+      ansible.builtin.command:
+        argv: ["./labctl", "doctor"]
+        chdir: "{{ containerlab_source }}"
+      changed_when: false
+      when: containerlab_operation == 'deploy'
+
+    - name: Deploy the lab
+      ansible.builtin.command:
+        argv: ["./labctl", "up", "{{ containerlab_lab }}"]
+        chdir: "{{ containerlab_source }}"
+      when: containerlab_operation == 'deploy'
+
+    - name: Verify the lab
+      ansible.builtin.command:
+        argv: ["./labctl", "verify", "{{ containerlab_lab }}"]
+        chdir: "{{ containerlab_source }}"
+      changed_when: false
+      when: containerlab_operation in ['deploy', 'verify']
+
+    - name: Destroy the lab
+      ansible.builtin.command:
+        argv: ["./labctl", "down", "{{ containerlab_lab }}"]
+        chdir: "{{ containerlab_source }}"
+      when: containerlab_operation == 'destroy'

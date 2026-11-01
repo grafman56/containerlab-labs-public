@@ -1,0 +1,7 @@
+all:
+  children:
+    containerlab_hosts:
+      hosts:
+        lab-host:
+          ansible_host: replace-with-your-containerlab-host
+          ansible_user: replace-with-your-ssh-user

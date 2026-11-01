@@ -40,6 +40,8 @@ Each lab pins its container images. The FRR labs use FRR 10.7.0.
 ./labctl down ibgp-rr     # destroy only this lab
 ```
 
+To drive a remote host with Ansible, see `ansible/README.md`.
+
 `enterprise-fabric` uses netlab, and `wireless-radius-8021x` loads a kernel module, so read their READMEs first. Do not run broad Docker cleanup commands on a host that runs other workloads.
 
 ## Static checks
