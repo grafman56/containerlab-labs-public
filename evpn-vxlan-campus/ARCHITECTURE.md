@@ -93,3 +93,30 @@ prevents a policy result from hiding an underlay or overlay fault.
 policy at its ownership boundary: border eBGP filtering at the border, leaf
 exit selection at the leaf, and BGP-to-OSPF filtering at the ASBR. It does not
 turn the firewall stand-in into a second fabric route-policy owner.
+
+## Why Batfish is not a gate here
+
+Batfish reads device configs offline and answers questions about them. It is
+tempting as a pre-deployment check, so it was tried on this lab's 21 FRR
+configs (2026-11-01) before anything was wired in.
+
+Every file came back `PARTIALLY_UNRECOGNIZED`. Batfish reads FRR through its
+Cisco-family grammar, and that grammar does not know FRR's native OSPF lines
+(`router ospf`, `network ... area`, `area stub`), the EVPN lines (`vni`,
+`address-family l2vpn evpn`, `advertise-all-vni`) or `frr version`. It then
+reported no OSPF sessions and 56 of 67 BGP sessions `NOT_ESTABLISHED`, while the
+running lab has them all up. Without the OSPF underlay, its model cannot bring
+up iBGP over loopbacks.
+
+So a Batfish step here would fail a healthy lab. It is left out of `labctl` and
+`demo.sh`. The checks that do work are the running ones: `verify` and
+`verify-identity` test the real control plane, and `reconcile` compares the
+registers.
+
+**Principle:** a static analyzer is only as good as its model of the dialect.
+Measure how much of your config it understands (parse status first) before you
+trust its verdicts, and never gate on a tool that cannot read your files.
+
+Batfish is still useful on BGP-only FRR labs (`ibgp-rr`), and it lists Palo
+Alto among its supported vendors, so a check on real PAN-OS config exports is
+worth trying later. Not tested: whether it models User-ID rules.
