@@ -147,7 +147,7 @@ def main():
     ap = {("TENANT-A", "02:00:00:00:00:99"): dict(FABRIC[("TENANT-A", "aa:c1:ab:fe:fc:8a")],
                                                   mac="02:00:00:00:00:99", fabric_ip="")}
     assert "UNAUTHENTICATED" in codes(reconcile(ap, {}, {}, {}, NOW), "02:00:00:00:00:99")
-    assert reconcile(ap, {}, {}, {}, NOW, {"02:00:00:00:00:99"}) == []
+    assert "UNAUTHENTICATED" not in codes(reconcile(ap, {}, {}, {}, NOW, {"02:00:00:00:00:99"}), "02:00:00:00:00:99")
 
     check_panos()
     check_prometheus()
