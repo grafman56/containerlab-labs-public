@@ -1,6 +1,6 @@
 # FRR EVPN-VXLAN: 4 Spines, 10 Leaves
 
-> **Limitation: no VLAN-to-VNI mapping.** Containerlab runs FRR on the host's Linux kernel, so these labs use the traditional VXLAN model: one VXLAN device per VNI, each in its own non-VLAN-aware bridge. There is no VLAN-to-VNI mapping table as on a hardware leaf, and host ports are untagged. Treat a bridge and its VNI as the "VLAN". See [FRR EVPN: VLAN-aware bridges and single VXLAN devices](https://docs.frrouting.org/en/stable-10.7/evpn.html).
+> **Limitation: VLAN-to-VNI mapping is not in the FRR config.** FRR (`vtysh`) has no command that maps a VLAN to a VNI, unlike NX-OS or Junos. FRR only discovers the VNIs that already exist in the Linux kernel (`advertise-all-vni`). The mapping is part of how the Containerlab nodes are built: the bridge and VXLAN devices created by each node's setup script (`scripts/`) or `exec` lines in the topology file. To add or change a VLAN-to-VNI mapping, change those scripts, not `configs/*.conf`. These labs use one bridge per VNI and untagged host ports. See [FRR EVPN](https://docs.frrouting.org/en/stable-10.7/evpn.html).
 
 A larger Clos fabric than `evpn-vxlan/` (2 spines, 2 leaves): a routed eBGP
 underlay, full-mesh loopback-based eBGP EVPN sessions between every leaf
