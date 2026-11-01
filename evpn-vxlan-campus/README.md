@@ -205,6 +205,21 @@ disagree. Read-only.
 
 To publish to, and reconcile against, a PAN-OS XML API such as the `panos-emulator` lab instead of the nftables stand-in, add `--panos URL` to `./labctl publish` and `./labctl reconcile`. It is optional. See `reconcile/README.md`.
 
+### Guided demo
+
+`./demo.sh [PANOS_URL]` walks one user through fabric, NAC, DDI and firewall, with changes and break/fix. It takes about 3 minutes and checks its own results. It needs the lab up (`./labctl up`, `verify`, `verify-identity`) and a PAN-OS XML API on `PANOS_URL`, default `http://127.0.0.1:8080` (run `python3 panos_emulator.py` from the `panos-emulator` project).
+
+| Step | What happens | What `reconcile` shows |
+|---|---|---|
+| 1-2 | Stations get addresses. NAC knows `jsmith`, the firewall does not. | `UNPUBLISHED` |
+| 3-4 | `publish` sends the user and the role/segment tags. | clean |
+| 5-6 | Change: NAC moves `jsmith` to the visitor VLAN, then back. | `WRONG_SEGMENT`, then clean |
+| 7-8 | Break: the wired laptop logs off. Fix: `publish --expire`. | `STALE_PUBLICATION`, then clean |
+| 9-10 | Break: someone adds a wrong role tag on the firewall. Fix: `publish`. | `WRONG_TAG`, then clean |
+| 11 | Restore and publish. | no `CRITICAL` |
+
+The visitor has no DHCP lease in this lab, so two `NO_ADDRESS` warnings stay on screen throughout. That is a known gap, not a failure. The demo shortens the bridges' MAC ageing to 30 s so step 6 takes about a minute instead of five.
+
 The short version of why it exists: the fabric and the NAC are keyed on MAC,
 the firewall is keyed on IP, and only the DHCP lease holds the edge between
 them. See `reconcile/README.md`.

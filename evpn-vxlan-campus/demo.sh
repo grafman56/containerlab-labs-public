@@ -25,12 +25,18 @@ expect() { # expect <code> present|absent
   if [ "$2" = present ]; then [ "$got" -gt 0 ] && ok=1; else [ "$got" -eq 0 ] && ok=1; fi
   if [ $ok -eq 1 ]; then say "ok: ${1:-no CRITICAL} $2"; else say "FAIL: expected ${1:-no CRITICAL} $2"; fails=$((fails + 1)); fi
 }
-# Wait until a CRITICAL code is gone (or is there), up to $3 seconds.
+# Wait until a CRITICAL code is there (or gone), up to $3 seconds. "Gone" must
+# hold for 20 s: a station that is mid-reconnect briefly has no fabric entry.
 wait_for() {
-  local end=$((SECONDS + ${3:-240}))
+  local end=$((SECONDS + ${3:-240})) n
   while [ $SECONDS -lt $end ]; do
     n=$("$here/labctl" reconcile --panos "$url" 2>&1 | grep -c "^CRITICAL .*$1")
-    { [ "$2" = present ] && [ "$n" -gt 0 ]; } || { [ "$2" = absent ] && [ "$n" -eq 0 ]; } && return 0
+    if [ "$2" = present ] && [ "$n" -gt 0 ]; then return 0; fi
+    if [ "$2" = absent ] && [ "$n" -eq 0 ]; then
+      sleep 20
+      n=$("$here/labctl" reconcile --panos "$url" 2>&1 | grep -c "^CRITICAL .*$1")
+      [ "$n" -eq 0 ] && return 0
+    fi
     sleep 5
   done
   return 1
@@ -73,6 +79,13 @@ step "4. What the firewall now holds"
 curl -s "$url/api/?type=op&cmd=<show><user><ip-user-mapping><all/></ip-user-mapping></user></show>" | head -c 600; echo
 curl -s "$url/api/?type=op&cmd=<show><object><registered-ip><all/></registered-ip></object></show>" | head -c 700; echo
 
+# Bridges forget a MAC after 300 s, on the AP, the edge switch and the leaf.
+# The demo shortens that to 30 s so the old VLAN's entry clears in about a
+# minute instead of five. Not needed in real life.
+for pair in ap-a1:breth1.10 ap-a1:breth1.30 edge-a1:br-staff edge-a1:br-eduroam leaf1a:br10 leaf1a:br30; do
+  docker exec "$lab-${pair%%:*}" ip link set "${pair##*:}" type bridge ageing_time 3000
+done
+
 step "5. CHANGE: move jsmith from the staff VLAN to the visitor VLAN"
 say "NAC returns VLAN 30 on the next login. The fabric follows. The firewall does not."
 set_vlan 10 30
@@ -81,7 +94,7 @@ expect WRONG_SEGMENT present
 
 step "6. CHANGE BACK: revert; the finding clears once the AP ages out the old VLAN"
 set_vlan 30 10
-wait_for WRONG_SEGMENT absent 300
+wait_for WRONG_SEGMENT absent 420
 expect WRONG_SEGMENT absent
 
 step "7. BREAK: the wired laptop logs off; the firewall still trusts its address"
