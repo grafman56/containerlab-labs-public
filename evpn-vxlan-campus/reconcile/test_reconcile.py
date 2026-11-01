@@ -141,6 +141,7 @@ def main():
     assert reconcile(clean_fab, clean_nac, clean_lease, clean_fw, NOW) == []
 
     check_panos()
+    check_prometheus()
     print("ok")
 
 
@@ -192,6 +193,37 @@ def check_panos():
     assert got["10.10.10.100"]["mac"] == "aa:c1:ab:fe:fc:8a"
     assert got["10.30.30.100"]["user"] == "" and got["10.30.30.100"]["mac"] == "aa:c1:ab:a9:36:e2"
 
+    # Replace, don't accumulate: managed tags that are no longer wanted go,
+    # tags somebody else added stay.
+    assert publish.stale_tags({"role:staff", "closet:idf-1", "quarantine"},
+                              ["role:staff", "closet:idf-2"]) == ["closet:idf-1"]
+    assert publish.stale_tags([], ["role:staff"]) == []
+    # Two role tags are a conflict that can never equal one authorized role.
+    panos.mappings = lambda u, k: {}
+    panos.tags = lambda u, k: {"10.0.0.9": {"role:staff", "role:visitor"}}
+    try:
+        both = registers.panos_firewall("http://x")
+    finally:
+        panos.mappings, panos.tags = orig
+    assert both["10.0.0.9"]["role"] == "staff+visitor"
+
+    # WRONG_USER: right role, wrong person on the address.
+    from reconcile import reconcile as rec
+    mac = "aa:c1:ab:fe:fc:8a"
+    sess = {"live": True, "anonymous": False, "user": "jsmith@campus.edu", "age": 5,
+            "expected_role": "staff", "realm": "campus.edu", "ts": NOW - 5}
+    lease = {"ip": "10.10.10.100", "mac": mac, "vrf": "TENANT-A", "expired": False,
+             "expire": NOW + 99}
+    fwrow = {"ip": "10.10.10.100", "role": "staff", "user": "bob@campus.edu", "mac": mac,
+             "published_at": 0, "vrf": "TENANT-A"}
+    got = rec({("TENANT-A", mac): {"mobility": 1}}, {mac: sess}, {mac: lease},
+              {"10.10.10.100": fwrow}, NOW)
+    assert "WRONG_USER" in {f["code"] for f in got}, got
+    fwrow["user"] = "jsmith@campus.edu"
+    got = rec({("TENANT-A", mac): {"mobility": 1}}, {mac: sess}, {mac: lease},
+              {"10.10.10.100": fwrow}, NOW)
+    assert "WRONG_USER" not in {f["code"] for f in got}, got
+
     # Without the flag or the variable, publish.py does nothing extra.
     os.environ.pop("PANOS_URL", None)
     assert publish.panos_target(["--expire"]) is None
@@ -202,6 +234,30 @@ def check_panos():
         assert publish.panos_target([]) == "http://z:8080"
     finally:
         del os.environ["PANOS_URL"]
+
+
+def check_prometheus():
+    import re
+    import reconcile as rc
+    from pathlib import Path
+
+    # CODES must list every code the source can raise, or a cleared finding
+    # would vanish from the metrics instead of reading 0.
+    src = Path(rc.__file__).read_text()
+    raised = set(re.findall(r'add\("(?:CRITICAL|WARN|INFO)", "([A-Z_]+)"', src))
+    listed = {c for codes in rc.CODES.values() for c in codes}
+    assert raised <= listed, sorted(raised - listed)
+
+    text = rc.prometheus(
+        [{"severity": "CRITICAL", "code": "STALE_PUBLICATION", "subject": "x", "detail": ""}],
+        {"firewall_mappings": 3}, [4, 9], 100)
+    lines = text.splitlines()
+    assert 'campus_reconcile_findings{severity="CRITICAL",code="STALE_PUBLICATION"} 1' in lines
+    assert 'campus_reconcile_findings{severity="CRITICAL",code="WRONG_TAG"} 0' in lines
+    assert 'campus_register_entries{register="firewall_mappings"} 3' in lines
+    assert "campus_publication_latency_max_seconds 9" in lines
+    assert "campus_reconcile_up 1" in lines
+    assert "campus_reconcile_up 0" in rc.prometheus([], {}, [], 100, up=0)
 
 
 if __name__ == "__main__":

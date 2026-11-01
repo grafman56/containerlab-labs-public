@@ -157,6 +157,17 @@ def tag_sets(dry=False):
             if o.get("set", {}).get("name", "").startswith("tag_")]
 
 
+# Tag namespaces this tool owns. Anything else on an address (a manual
+# "quarantine" tag, say) belongs to someone else and is never removed.
+MANAGED = ("role", "site", "bldg", "closet", "vrf", "vni", "loc")
+
+
+def stale_tags(current, wanted):
+    """Managed tags on an address that the new publication no longer wants."""
+    return sorted(t for t in current
+                  if t.split(":", 1)[0] in MANAGED and t not in wanted)
+
+
 def panos_target(argv):
     """The --panos URL (or PANOS_URL), or None. None means do nothing extra."""
     for i, arg in enumerate(argv):
@@ -271,18 +282,50 @@ def main(argv):
                     ip, pub["role"], pub["user"] or "-"))
                 stale.append((pub["user"], ip))
 
+    failed = 0
     if pan:
+        key = os.environ.get("PANOS_KEY", "")
+        try:
+            registered = panos.tags(pan, key)
+        except Exception as error:
+            print("panos read failed: %s" % error, file=sys.stderr)
+            registered = {}
+        results = []  # one bool per message, so a failure can be reported
+        for ip, (user, tags) in sorted(wanted.items()):
+            # Replace, not just add: a role or location that changed must not
+            # leave the old tag behind, or the address wears both.
+            drop = stale_tags(registered.get(ip, ()), tags)
+            if drop:
+                results.append(panos_send(pan, dry=dry, unregister=[(ip, drop)]))
+                print("dropped   %-15s %s" % (ip, " ".join(drop)))
         for ip, (user, tags) in sorted(wanted.items()):
             # No login for an anonymous roaming user: there is no real name to
             # map. The address still gets its tags, which is all a dynamic
             # address group needs.
-            panos_send(pan, dry=dry, login=[(user, ip)] if user else (),
-                       register=[(ip, tags)])
+            results.append(panos_send(pan, dry=dry, login=[(user, ip)] if user else (),
+                                      register=[(ip, tags)]))
+        if "--expire" in argv:
+            # What the PAN-OS side holds is its own truth. An address it tags
+            # that has no live, addressed session is stale even when the
+            # nftables firewall never heard of it (a hand edit, a restore).
+            try:
+                held = R.panos_firewall(pan, key, leases=leases)
+            except Exception as error:
+                print("panos read failed: %s" % error, file=sys.stderr)
+                held = {}
+            known = {ip for _, ip in stale}
+            for ip, pub in sorted(held.items()):
+                if ip not in wanted and ip not in known:
+                    stale.append((pub["user"], ip))
+                    print("expired   %-15s role=%-7s %s (PAN-OS only)" % (
+                        ip, pub["role"], pub["user"] or "-"))
         for user, ip in stale:
-            panos_send(pan, dry=dry, logout=[(user, ip)] if user else (),
-                       unregister=[(ip, [])])
-        print("%s %d endpoint(s) and %d expiry(ies) to %s" % (
-            "would send" if dry else "sent", len(wanted), len(stale), pan))
+            results.append(panos_send(pan, dry=dry, logout=[(user, ip)] if user else (),
+                                      unregister=[(ip, [])]))
+        failed = results.count(False)
+        print("%s %d endpoint(s) and %d expiry(ies) to %s%s" % (
+            "would send" if dry else "sent", len(wanted), len(stale), pan,
+            "  -- %d update(s) FAILED" % failed if failed else ""))
 
     if "--enforce" in argv:
         enforce(dry=dry)
@@ -293,7 +336,9 @@ def main(argv):
         added, kept, removed,
         "" if "--expire" in argv
         else "  (no --expire: stale mappings left in place on purpose)"))
-    return 0
+    # The nftables publication stands either way, but a PAN-OS leg that failed
+    # must not look like success to a timer or a CI job.
+    return 1 if pan and failed else 0
 
 
 if __name__ == "__main__":

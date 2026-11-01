@@ -331,9 +331,12 @@ def panos_firewall(url, key="", vrfs=(), leases=None):
     mac_by_ip = {l["ip"]: m for m, l in (leases or {}).items()}
     out = {}
     for ip, tags in panos.tags(url, key).items():
-        role = next((t[len("role:"):] for t in sorted(tags) if t.startswith("role:")), None)
-        if role is None:
+        roles = [t[len("role:"):] for t in sorted(tags) if t.startswith("role:")]
+        if not roles:
             continue
+        # Two role tags on one address is a conflict, not a tie to break. Join
+        # them so it can never equal the single role the NAC authorized.
+        role = "+".join(roles)
         slug = next((t[len("vrf:"):] for t in sorted(tags) if t.startswith("vrf:")), "")
         out[ip] = {"ip": ip, "role": role, "user": users.get(ip) or "",
                    "mac": mac_by_ip.get(ip, ""), "published_at": 0,

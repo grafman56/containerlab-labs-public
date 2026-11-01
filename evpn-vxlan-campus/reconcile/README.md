@@ -130,6 +130,7 @@ merely cannot get through.
 |---|---|---|
 | `STALE_PUBLICATION` | firewall still tags an address, no live session | **the dangerous one.** The next device to take that address inherits someone else's rights. Caused by a missed Accounting-Stop — a closed lid, a device out of range, an AP reboot. Completely normal. |
 | `WRONG_TAG` | firewall role ≠ the role the NAC authorized | policy applied to the wrong person |
+| `WRONG_USER` | firewall maps the address to a different user than the NAC session on it | right role, wrong person: user-based rules and logs name someone else. Usually a hand edit on the firewall |
 | `WRONG_SEGMENT` | NAC authorized one role, fabric placed it in another VNI | the `use_tunneled_reply` signature: auth succeeded, the client associated, the `Tunnel-*` attributes were dropped, the station sits in the authenticator's default segment. **Nothing logs an error, because nothing went wrong.** |
 | `VRF_MISMATCH` | published in one VRF, fabric holds the MAC in another | the overlapping-address trap above |
 | `LEASE_REASSIGNED` | the lease moved to a different MAC, the mapping did not | the stale case, caught earlier |
@@ -303,7 +304,28 @@ Read the result back with `show user ip-user-mapping` and `show object registere
 ./labctl reconcile --panos http://127.0.0.1:8080
 ```
 
+`publish --panos` replaces, it does not only add. On each run it removes the tags it manages (`role`, `site`, `bldg`, `closet`, `vrf`, `vni`, `loc`) that are no longer wanted, so a renumbered closet or a changed role does not leave the old tag behind. Tags in other namespaces, such as a hand-added `quarantine`, are never removed. With `--expire` it also removes any address the API tags that has no live, addressed session, even if the nftables firewall never knew about it. If any update fails, `publish` says so and exits 1; the nftables publication still stands.
+
 With `--panos`, the firewall register comes from the API instead of nftables. PAN-OS holds no MAC, VRF name or publication time, so the reader rebuilds them: the role and VRF come from the `role:` and `vrf:` tags, the user from the IP-to-user table, and the MAC from the DDI lease on that address. Two things follow. `LEASE_REASSIGNED` cannot fire, because the MAC is always the current lease holder's. Publication latency is not reported. Addresses with no `role:` tag are ignored. An anonymous visitor is tagged but has no user mapping, and is not reported as stale while the session is live.
+
+## Monitoring
+
+`reconcile.py --prometheus` prints the counts in Prometheus text format. Run it on a timer and let a Telegraf `prometheus` input, or a node_exporter textfile collector, pick it up:
+
+```toml
+[[inputs.prometheus]]
+  urls = ["http://127.0.0.1:19100/campus.prom"]   # a file server over the timer's output
+```
+
+| Metric | Meaning |
+| --- | --- |
+| `campus_reconcile_findings{severity,code}` | Open findings. Every code is printed, so a cleared one reads 0 and an alert can see it clear |
+| `campus_register_entries{register}` | Entries in the fabric, NAC, DDI and firewall registers |
+| `campus_publication_latency_max_seconds` | Slowest NAC-to-firewall publication, when the register has timestamps |
+| `campus_reconcile_up` | 0 if a register could not be read, such as the PAN-OS API being down. Alert on this, or a dead firewall looks like a clean campus |
+| `campus_reconcile_timestamp_seconds` | When the run happened. Alert if it stops moving |
+
+Useful alerts: `STALE_PUBLICATION > 0` (a session ended without an Accounting-Stop and the mapping is still live), `WRONG_TAG` or `WRONG_USER > 0` (drift), and `campus_reconcile_up == 0`. A reconcile run exits 3 if the API cannot be read, and 0 otherwise, because deltas are the normal state of a campus.
 
 ## What the firewall register is, and is not
 

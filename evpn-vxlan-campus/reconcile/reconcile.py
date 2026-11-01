@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """Read-only reconciliation of the fabric, the NAC, DDI and the firewall.
 
-Usage: ./reconcile.py [--json] [--now EPOCH] [--panos URL]
+Usage: ./reconcile.py [--json | --prometheus] [--now EPOCH] [--panos URL]
 
 Reports the deltas between four registers that nothing else compares. See
 registers.py for what each one knows and why DDI is the load-bearing join.
+
+--prometheus prints the counts in Prometheus text format, for a Telegraf
+prometheus input or a node_exporter textfile. A finding code with none open
+is still printed as 0, so an alert can see it clear. If the PAN-OS API cannot
+be reached, the output says campus_reconcile_up 0 instead of failing.
 
 --panos URL reads the firewall register from a PAN-OS XML API (the
 panos-emulator lab, or a firewall) instead of nftables. PANOS_KEY, if set, is
@@ -25,6 +30,50 @@ import registers as R
 # rights to whoever now holds the address, which is worse than an endpoint
 # that merely cannot get through.
 SEVERITY = ("CRITICAL", "WARN", "INFO")
+
+
+# Every code add() can raise. Kept here so --prometheus can print a 0 for a
+# code with nothing open; test_reconcile.py checks this list against the source.
+CODES = {
+    "CRITICAL": ("DUPLICATE_MAC", "LEASE_REASSIGNED", "STALE_PUBLICATION",
+                 "VRF_MISMATCH", "WRONG_SEGMENT", "WRONG_TAG", "WRONG_USER"),
+    "WARN": ("LEASE_EXPIRED", "NO_ADDRESS", "OFF_IPAM",
+             "PUBLISHED_WITHOUT_LEASE", "UNPUBLISHED", "UNAUTHENTICATED"),
+    "INFO": ("MOBILITY", "NO_USERNAME_TO_PUBLISH"),
+}
+
+
+def prometheus(findings, registers, lat, now, up=1):
+    """Prometheus text exposition of one reconcile run. Pure, so it is tested
+    without a lab."""
+    out = [
+        "# HELP campus_reconcile_up 1 if every register could be read.",
+        "# TYPE campus_reconcile_up gauge",
+        "campus_reconcile_up %d" % up,
+        "# HELP campus_reconcile_timestamp_seconds When this run happened.",
+        "# TYPE campus_reconcile_timestamp_seconds gauge",
+        "campus_reconcile_timestamp_seconds %d" % now,
+        "# HELP campus_reconcile_findings Open findings by severity and code.",
+        "# TYPE campus_reconcile_findings gauge",
+    ]
+    open_ = {}
+    for f in findings:
+        open_[(f["severity"], f["code"])] = open_.get((f["severity"], f["code"]), 0) + 1
+    for sev, codes in CODES.items():
+        for code in codes:
+            out.append('campus_reconcile_findings{severity="%s",code="%s"} %d' % (
+                sev, code, open_.pop((sev, code), 0)))
+    for (sev, code), n in sorted(open_.items()):  # a code missing from CODES
+        out.append('campus_reconcile_findings{severity="%s",code="%s"} %d' % (sev, code, n))
+    out += ["# HELP campus_register_entries Entries in each register.",
+            "# TYPE campus_register_entries gauge"]
+    for name, n in registers.items():
+        out.append('campus_register_entries{register="%s"} %d' % (name, n))
+    if lat:
+        out += ["# HELP campus_publication_latency_max_seconds Slowest NAC-to-firewall publication.",
+                "# TYPE campus_publication_latency_max_seconds gauge",
+                "campus_publication_latency_max_seconds %d" % max(lat)]
+    return "\n".join(out) + "\n"
 
 
 def reconcile(fab, nacs, leases, fw, now, infra=frozenset()):
@@ -57,6 +106,13 @@ def reconcile(fab, nacs, leases, fw, now, infra=frozenset()):
             add("CRITICAL", "WRONG_TAG", ip,
                 "firewall says role=%s, NAC authorized %s (realm %s)" % (
                     pub["role"], sess["expected_role"], sess["realm"]))
+
+        if pub["user"] and not sess["anonymous"] and pub["user"] != sess["user"]:
+            # The address is tagged for the right role but mapped to someone
+            # else. User-based rules and logs now name the wrong person.
+            add("CRITICAL", "WRONG_USER", ip,
+                "firewall maps this address to %s, the NAC session on it is %s" % (
+                    pub["user"], sess["user"]))
 
         fabent = fab.get((pub["vrf"], pub["mac"])) if pub["mac"] else None
         if pub["vrf"] and fabent is None:
@@ -196,12 +252,28 @@ def main(argv):
     leases = R.ddi(now)
     url = panos_url(argv)
     if url:
-        fw = R.panos_firewall(url, os.environ.get("PANOS_KEY", ""),
-                              vrfs={k[0] for k in fab}, leases=leases)
+        try:
+            fw = R.panos_firewall(url, os.environ.get("PANOS_KEY", ""),
+                                  vrfs={k[0] for k in fab}, leases=leases)
+        except Exception as error:
+            # A firewall that cannot be read is a different problem from a
+            # firewall that disagrees. Say so rather than printing a traceback
+            # or, worse, reporting every session as unpublished.
+            if "--prometheus" in argv:
+                print(prometheus([], {}, [], now, up=0), end="")
+                return 0
+            print("cannot read the PAN-OS API at %s: %s" % (url, error), file=sys.stderr)
+            return 3
     else:
         fw = R.firewall()
     findings = reconcile(fab, nacs, leases, fw, now, R.infra())
     lat = latencies(nacs, fw)
+
+    if "--prometheus" in argv:
+        print(prometheus(findings, {"fabric": len(fab), "nac_sessions": len(nacs),
+                                    "ddi_leases": len(leases),
+                                    "firewall_mappings": len(fw)}, lat, now), end="")
+        return 0
 
     if want_json:
         print(json.dumps({
