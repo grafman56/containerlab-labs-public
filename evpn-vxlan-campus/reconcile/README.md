@@ -115,7 +115,7 @@ routes, and a type-2 exists only while the leaf holds an ARP entry — so
 ./labctl reconcile --json       # same, for a pipeline
 ./labctl publish                # the ClearPass -> PAN-OS leg
 ./labctl publish --expire       # ...and the cleanup it normally lacks
-cd reconcile && ./test_reconcile.py
+cd reconcile && ./test_reconcile.py && ./test_properties.py
 ```
 
 `reconcile.py` never writes to a lab node. `publish.py` is the only writer.

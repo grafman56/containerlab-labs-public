@@ -93,6 +93,7 @@ python3 -m unittest cin-rphy-transport/tests/test_topology_role_intent.py -v
 # The campus reconciliation self-check asserts the parsers and the join over
 # fixtures trimmed from live lab output. It needs no running lab.
 ( cd evpn-vxlan-campus/reconcile && python3 test_reconcile.py )
+( cd evpn-vxlan-campus/reconcile && python3 test_properties.py )
 
 echo
 echo "== shell syntax =="
