@@ -219,10 +219,24 @@ def check_panos():
     got = rec({("TENANT-A", mac): {"mobility": 1}}, {mac: sess}, {mac: lease},
               {"10.10.10.100": fwrow}, NOW)
     assert "WRONG_USER" in {f["code"] for f in got}, got
+    fwrow["user"] = ""
+    got = rec({("TENANT-A", mac): {"mobility": 1}}, {mac: sess}, {mac: lease},
+              {"10.10.10.100": fwrow}, NOW)
+    assert "MISSING_USER" in {f["code"] for f in got}, got
+    assert "WRONG_USER" not in {f["code"] for f in got}, got
     fwrow["user"] = "jsmith@campus.edu"
     got = rec({("TENANT-A", mac): {"mobility": 1}}, {mac: sess}, {mac: lease},
               {"10.10.10.100": fwrow}, NOW)
     assert "WRONG_USER" not in {f["code"] for f in got}, got
+
+    # The login timeout is optional and only goes on login entries.
+    withto = fromstring(panos.uid_message(login=[("u", "1.1.1.1", 1)], logout=[("u", "1.1.1.1")]))
+    assert withto.find("payload/login/entry").get("timeout") == "1"
+    assert withto.find("payload/logout/entry").get("timeout") is None
+    assert fromstring(panos.uid_message(login=[("u", "1.1.1.1")])).find("payload/login/entry").get("timeout") is None
+    assert publish.option(["--panos-timeout", "5"], "--panos-timeout") == "5"
+    assert publish.option(["--panos-timeout=7"], "--panos-timeout") == "7"
+    assert publish.option([], "--panos-timeout") is None
 
     # Without the flag or the variable, publish.py does nothing extra.
     os.environ.pop("PANOS_URL", None)

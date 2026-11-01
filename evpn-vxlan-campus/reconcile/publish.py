@@ -21,6 +21,10 @@ reconcile.py afterwards and the stale entry is sitting there.
             panos-emulator lab, or a firewall). Optional: without it nothing
             here changes and the nftables firewall is the only target. Set
             PANOS_KEY if the API needs a key. --expire and --flush apply to it too.
+  --panos-timeout MIN  login mapping timeout in minutes (default: the
+            firewall's, 45 on PAN-OS). The publish timer must run more often
+            than this, or a live session loses its mapping and reconcile
+            reports it UNPUBLISHED until the next run.
   --enforce install one counter rule per tag, so you can watch policy match
             on "staff in Howard-Tilton" with no prefix in the rule.
 """
@@ -168,6 +172,16 @@ def stale_tags(current, wanted):
                   if t.split(":", 1)[0] in MANAGED and t not in wanted)
 
 
+def option(argv, name):
+    """The value after --name, or from --name=value, or None."""
+    for i, arg in enumerate(argv):
+        if arg == name and i + 1 < len(argv):
+            return argv[i + 1]
+        if arg.startswith(name + "="):
+            return arg.split("=", 1)[1]
+    return None
+
+
 def panos_target(argv):
     """The --panos URL (or PANOS_URL), or None. None means do nothing extra."""
     for i, arg in enumerate(argv):
@@ -290,6 +304,7 @@ def main(argv):
         except Exception as error:
             print("panos read failed: %s" % error, file=sys.stderr)
             registered = {}
+        minutes = option(argv, "--panos-timeout")
         results = []  # one bool per message, so a failure can be reported
         for ip, (user, tags) in sorted(wanted.items()):
             # Replace, not just add: a role or location that changed must not
@@ -302,7 +317,8 @@ def main(argv):
             # No login for an anonymous roaming user: there is no real name to
             # map. The address still gets its tags, which is all a dynamic
             # address group needs.
-            results.append(panos_send(pan, dry=dry, login=[(user, ip)] if user else (),
+            results.append(panos_send(pan, dry=dry,
+                                      login=[(user, ip, minutes)] if user else (),
                                       register=[(ip, tags)]))
         if "--expire" in argv:
             # What the PAN-OS side holds is its own truth. An address it tags

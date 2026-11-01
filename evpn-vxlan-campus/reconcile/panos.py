@@ -17,7 +17,8 @@ SHOW_TAGS = "<show><object><registered-ip><all/></registered-ip></object></show>
 def uid_message(login=(), logout=(), register=(), unregister=()):
     """Build one <uid-message>.
 
-    login:      (user, ip)            the user on that address
+    login:      (user, ip[, minutes]) the user on that address; minutes is the
+                                      mapping timeout (the firewall default if omitted)
     logout:     (user, ip)
     register:   (ip, [tags])          tag an address (dynamic address groups)
     unregister: (ip, [tags])          no tags = drop every tag on the address
@@ -29,8 +30,10 @@ def uid_message(login=(), logout=(), register=(), unregister=()):
     for verb, rows in (("login", login), ("logout", logout)):
         if rows:
             parent = SubElement(payload, verb)
-            for user, ip in rows:
-                SubElement(parent, "entry", name=user, ip=ip)
+            for user, ip, *minutes in rows:
+                entry = SubElement(parent, "entry", name=user, ip=ip)
+                if verb == "login" and minutes and minutes[0] is not None:
+                    entry.set("timeout", str(minutes[0]))
     for verb, rows in (("register", register), ("unregister", unregister)):
         if rows:
             parent = SubElement(payload, verb)

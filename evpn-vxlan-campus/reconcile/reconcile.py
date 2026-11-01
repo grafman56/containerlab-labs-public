@@ -37,7 +37,7 @@ SEVERITY = ("CRITICAL", "WARN", "INFO")
 CODES = {
     "CRITICAL": ("DUPLICATE_MAC", "LEASE_REASSIGNED", "STALE_PUBLICATION",
                  "VRF_MISMATCH", "WRONG_SEGMENT", "WRONG_TAG", "WRONG_USER"),
-    "WARN": ("LEASE_EXPIRED", "NO_ADDRESS", "OFF_IPAM",
+    "WARN": ("LEASE_EXPIRED", "MISSING_USER", "NO_ADDRESS", "OFF_IPAM",
              "PUBLISHED_WITHOUT_LEASE", "UNPUBLISHED", "UNAUTHENTICATED"),
     "INFO": ("MOBILITY", "NO_USERNAME_TO_PUBLISH"),
 }
@@ -113,6 +113,14 @@ def reconcile(fab, nacs, leases, fw, now, infra=frozenset()):
             add("CRITICAL", "WRONG_USER", ip,
                 "firewall maps this address to %s, the NAC session on it is %s" % (
                     pub["user"], sess["user"]))
+
+        elif not pub["user"] and not sess["anonymous"]:
+            # The tag is there and the user mapping is not: a login timeout
+            # ran out, or a restore brought back tags only. Role-based rules
+            # still work. Anything that names the user does not.
+            add("WARN", "MISSING_USER", ip,
+                "tagged role=%s, but the firewall has no user for this address; "
+                "the NAC session on it is %s" % (pub["role"], sess["user"]))
 
         fabent = fab.get((pub["vrf"], pub["mac"])) if pub["mac"] else None
         if pub["vrf"] and fabent is None:

@@ -131,6 +131,7 @@ merely cannot get through.
 | `STALE_PUBLICATION` | firewall still tags an address, no live session | **the dangerous one.** The next device to take that address inherits someone else's rights. Caused by a missed Accounting-Stop — a closed lid, a device out of range, an AP reboot. Completely normal. |
 | `WRONG_TAG` | firewall role ≠ the role the NAC authorized | policy applied to the wrong person |
 | `WRONG_USER` | firewall maps the address to a different user than the NAC session on it | right role, wrong person: user-based rules and logs name someone else. Usually a hand edit on the firewall |
+| `MISSING_USER` | firewall tags the address with the right role but holds no user for it | a login timeout ran out, or a restore brought back tags only. Role rules still work; rules that name the user do not. `publish` repairs it |
 | `WRONG_SEGMENT` | NAC authorized one role, fabric placed it in another VNI | the `use_tunneled_reply` signature: auth succeeded, the client associated, the `Tunnel-*` attributes were dropped, the station sits in the authenticator's default segment. **Nothing logs an error, because nothing went wrong.** |
 | `VRF_MISMATCH` | published in one VRF, fabric holds the MAC in another | the overlapping-address trap above |
 | `LEASE_REASSIGNED` | the lease moved to a different MAC, the mapping did not | the stale case, caught earlier |
@@ -298,6 +299,10 @@ What it sends, per live NAC session that has a DHCP lease:
 
 `--expire` sends `logout` and `unregister` for mappings with no live session. `--flush` clears the PAN-OS User-ID tables too. `--dry-run` prints the messages instead of sending them. If the API is down, the nftables publication still happens and the failure is printed.
 
+The login mapping has a timeout (45 minutes on PAN-OS unless you set one) and tags do not expire. Run `publish` more often than the timeout, or pass `--panos-timeout MINUTES`. If the mapping expires while the session is live, `reconcile` reports `MISSING_USER`, and the next `publish` restores it.
+
+A session that ends cleanly sends an Accounting-Stop, so `reconcile` reports it `STALE_PUBLICATION` within seconds. A crash or lost radio only shows up after the 90 second freshness window. Either way the firewall keeps the mapping until `publish --expire` removes it. Nothing here reacts to the Stop by itself.
+
 Read the result back with `show user ip-user-mapping` and `show object registered-ip`, or let `reconcile.py` read it:
 
 ```sh
@@ -326,6 +331,12 @@ With `--panos`, the firewall register comes from the API instead of nftables. PA
 | `campus_reconcile_timestamp_seconds` | When the run happened. Alert if it stops moving |
 
 Useful alerts: `STALE_PUBLICATION > 0` (a session ended without an Accounting-Stop and the mapping is still live), `WRONG_TAG` or `WRONG_USER > 0` (drift), and `campus_reconcile_up == 0`. A reconcile run exits 3 if the API cannot be read, and 0 otherwise, because deltas are the normal state of a campus.
+
+### Known gaps in the PAN-OS leg
+
+- A visitor holds a static address in this lab and gets no DHCP lease, so it has no IP to publish. The anonymous-visitor path (tags, no user) is covered by the self-check and a fake-register run, not by the live lab.
+- Policy does not match on user or tag. The emulator's `security-policy-match` takes zone and application only.
+- `LEASE_REASSIGNED` cannot fire against the PAN-OS register, and publication latency is not reported (see above).
 
 ## What the firewall register is, and is not
 
