@@ -105,44 +105,13 @@ ansible-playbook -i inventory.yml playbooks/edge_policy.yml \
 After a policy apply, run `../verify.sh`. Verify `p1` accepts the edge prefix,
 the reflectors receive it, and `p3` retains two reflected paths.
 
-## Declared device inventory
-
-`declared-inventory.json` is the declared device set for Miser's static
-resolver: one record per FRR node with ASN, router-id, interfaces, and peer
-ASN/role/address, plus `e1`'s owned `203.0.113.0/24`. It mirrors the NetBox
-`config_context` record shape so both resolvers return the same evidence.
-
-- Source of truth is the tracked `configs/*.conf` baseline, not invented
-  state. Keep the file in sync when a tracked config changes.
-- The repo validator checks that every declared target names a real topology
-  node: `./validate-repository.sh` at the repository root.
-
-### Render-and-compare verification (read-only)
-
-The acceptance check for intent -> config integrity renders every device's
-truthful intent against the static resolver and compares it with live state:
-
-1. Compile the device intent with Miser (`compile_intent` against
-   `build_static_resolver(file=declared-inventory.json)`) and render it with
-   the FRR adapter (`render_frr_config`).
-2. Collect live state read-only:
-   `docker exec clab-ibgp-rr-<dev> vtysh -c "show running-config bgpd"`.
-3. Compare sessions (neighbor address -> remote-as, activate) and router-id.
-   Peer-group members resolve through their group on the live side.
-
-The full-lab pass (all 7 FRR devices, zero session or router-id mismatches) is
-the baseline evidence. Expected diffs are adapter-vocabulary gaps, not
-failures: peer-groups, `update-source`, `next-hop-self`,
-`route-reflector-client`, `default-originate`, and route-map names on the
-devices that use them. Config apply stays behind the Miser policy gate.
-
 ## Poke around live
 
 ```bash
 docker exec -it clab-ibgp-rr-rr1 vtysh
 ```
 
-FRR's standard container does not run SSH. Use `docker exec` for these lightweight labs. NetBox records the host SSH plus Docker exec command for every node. Router commands open `vtysh`; access switches and clients open `bash`.
+FRR's standard container does not run SSH. Use `docker exec` for these lightweight labs. Router commands open `vtysh`; access switches and clients open `bash`.
 
 ## Destroy
 

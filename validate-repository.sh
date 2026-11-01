@@ -44,13 +44,6 @@ ansible_templates = [
     Path("ibgp-rr/ansible/playbooks/access_fabric.yml"),
 ]
 
-# Declared device inventories feed Miser's static resolver; every target must
-# name a real node in the matching topology so the resolver never invents a
-# device the lab does not have.
-declared_inventories = [
-    (Path("ibgp-rr/declared-inventory.json"), Path("ibgp-rr/ibgp-rr.clab.yml")),
-]
-
 for topology_path in topologies:
     with topology_path.open() as stream:
         topology = yaml.safe_load(stream)
@@ -88,19 +81,6 @@ for template_path in ansible_templates:
             raise SystemExit(f"{template_path}: template is empty")
     print(f"PASS: {template_path}")
 
-for inventory_path, topology_path in declared_inventories:
-    with inventory_path.open() as stream:
-        devices = json.load(stream)
-    if not isinstance(devices, dict) or not devices:
-        raise SystemExit(f"{inventory_path}: must be a non-empty mapping of target_id to record")
-    with topology_path.open() as stream:
-        nodes = yaml.safe_load(stream)["topology"]["nodes"]
-    unknown = sorted(set(devices) - set(nodes))
-    if unknown:
-        raise SystemExit(
-            f"{inventory_path}: declared targets not in {topology_path}: {', '.join(unknown)}"
-        )
-    print(f"PASS: {inventory_path}")
 PY
 
 echo

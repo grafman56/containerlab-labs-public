@@ -1,5 +1,7 @@
 # Two-Site Campus: EVPN-VXLAN Fabric, Non-Fabric Buildings, Dual Internet Edge
 
+> **Caveat: VLAN-to-VNI mapping.** A VLAN ID is local to one switch. A VNI is the fabric-wide segment ID. A real EVPN-VXLAN fabric needs an explicit VLAN-to-VNI mapping on every leaf (for example VLAN 10 on leaf1 and VLAN 110 on leaf2 can both map to VNI 1010). These labs do not model VLAN IDs on access ports. Each host port joins a Linux bridge that is bound to exactly one VNI, so the mapping is implied by the bridge. Build or extend the lab with an explicit VLAN-to-VNI table before you use it to explain VLAN design. Where the anycast gateway and border sit (leaf or spine) is a separate design choice.
+
 Two site fabrics joined by one point-to-point link, one tenant stretched across
 both, a border-leaf pair at each site, and a non-fabric building hanging off
 each site in its own OSPF area. The fabric underlay is OSPFv2 area 0. The

@@ -1,5 +1,7 @@
 # FRR EVPN-VXLAN: Two Spines, Two Leaves
 
+> **Caveat: VLAN-to-VNI mapping.** A VLAN ID is local to one switch. A VNI is the fabric-wide segment ID. A real EVPN-VXLAN fabric needs an explicit VLAN-to-VNI mapping on every leaf (for example VLAN 10 on leaf1 and VLAN 110 on leaf2 can both map to VNI 1010). These labs do not model VLAN IDs on access ports. Each host port joins a Linux bridge that is bound to exactly one VNI, so the mapping is implied by the bridge. Build or extend the lab with an explicit VLAN-to-VNI table before you use it to explain VLAN design. Where the anycast gateway and border sit (leaf or spine) is a separate design choice.
+
 This deployable lab demonstrates a routed eBGP underlay, redundant loopback-based eBGP EVPN sessions, two VXLAN VNIs (1010 and 1020), a VRF/L3VNI for symmetric IRB between them, and BGP policy (route-maps, a prefix-list, an ACL) on top of it.
 
 ## Topology

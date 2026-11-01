@@ -158,8 +158,8 @@ Three files carry the pattern and are not specific to this lab set:
 - `tests/test_labctl.py` - the safety and parsing tests.
 
 `validate-repository.sh` has two parts. The manifest check calls `./labctl
-check` and needs no change. The topology checks and the declared-inventory
-checks are specific to the labs in this repository; keep or replace them.
+check` and needs no change. The topology checks
+are specific to the labs in this repository; keep or replace them.
 
 A lab set that does not use Containerlab can still use the manifest. Set
 `driver` and the driver refuses the lifecycle verbs with a readable message,

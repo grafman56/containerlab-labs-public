@@ -1,5 +1,7 @@
 # FRR EVPN-VXLAN: 4 Spines, 10 Leaves
 
+> **Caveat: VLAN-to-VNI mapping.** A VLAN ID is local to one switch. A VNI is the fabric-wide segment ID. A real EVPN-VXLAN fabric needs an explicit VLAN-to-VNI mapping on every leaf (for example VLAN 10 on leaf1 and VLAN 110 on leaf2 can both map to VNI 1010). These labs do not model VLAN IDs on access ports. Each host port joins a Linux bridge that is bound to exactly one VNI, so the mapping is implied by the bridge. Build or extend the lab with an explicit VLAN-to-VNI table before you use it to explain VLAN design. Where the anycast gateway and border sit (leaf or spine) is a separate design choice.
+
 A larger Clos fabric than `evpn-vxlan/` (2 spines, 2 leaves): a routed eBGP
 underlay, full-mesh loopback-based eBGP EVPN sessions between every leaf
 and every spine, two L2 VNIs, and a VRF/L3VNI for inter-VNI routing
@@ -26,18 +28,13 @@ statement.
   gets redistributed into the tenant VRF and set local-preference on the
   underlay — real policy, not decoration.
 
-## Regenerating the topology
+## Editing the generated files
 
-`configs/`, `scripts/`, and `evpn-vxlan-fabric.clab.yml` are generated,
-not hand-edited. To change the fabric shape (spine/leaf counts, VNI
-assignment, address plan), edit the generator and rerun it — don't
-hand-patch the generated files, or the next regeneration silently
-overwrites the fix.
-
-The generator lives with the agent that built it, not in this repo (it's
-a one-time authoring tool, not something the lab runs). Regenerate by
-re-deriving it from this README's topology description, or ask whichever
-agent built it last.
+`configs/`, `scripts/`, and `evpn-vxlan-fabric.clab.yml` came from a
+generator that is not part of this repository. If you change the fabric
+shape (spine/leaf counts, VNI assignment, address plan), apply the same
+change on every leaf and spine, then run `./verify.sh`. A change on one
+node only will leave the fabric inconsistent.
 
 ## Deploy
 
