@@ -297,7 +297,13 @@ What it sends, per live NAC session that has a DHCP lease:
 
 `--expire` sends `logout` and `unregister` for mappings with no live session. `--flush` clears the PAN-OS User-ID tables too. `--dry-run` prints the messages instead of sending them. If the API is down, the nftables publication still happens and the failure is printed.
 
-Read the result back with `show user ip-user-mapping` and `show object registered-ip`. `reconcile.py` still reads only the nftables firewall.
+Read the result back with `show user ip-user-mapping` and `show object registered-ip`, or let `reconcile.py` read it:
+
+```sh
+./labctl reconcile --panos http://127.0.0.1:8080
+```
+
+With `--panos`, the firewall register comes from the API instead of nftables. PAN-OS holds no MAC, VRF name or publication time, so the reader rebuilds them: the role and VRF come from the `role:` and `vrf:` tags, the user from the IP-to-user table, and the MAC from the DDI lease on that address. Two things follow. `LEASE_REASSIGNED` cannot fire, because the MAC is always the current lease holder's. Publication latency is not reported. Addresses with no `role:` tag are ignored. An anonymous visitor is tagged but has no user mapping, and is not reported as stale while the session is live.
 
 ## What the firewall register is, and is not
 

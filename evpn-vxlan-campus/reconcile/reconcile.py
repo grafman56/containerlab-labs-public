@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
 """Read-only reconciliation of the fabric, the NAC, DDI and the firewall.
 
-Usage: ./reconcile.py [--json] [--now EPOCH]
+Usage: ./reconcile.py [--json] [--now EPOCH] [--panos URL]
 
 Reports the deltas between four registers that nothing else compares. See
 registers.py for what each one knows and why DDI is the load-bearing join.
+
+--panos URL reads the firewall register from a PAN-OS XML API (the
+panos-emulator lab, or a firewall) instead of nftables. PANOS_KEY, if set, is
+the API key. Without it, nothing changes.
 
 Nothing here writes to a lab node. Publication is reconcile/publish.py.
 """
 
 import json
+import os
 import statistics
 import sys
 import time
@@ -171,6 +176,15 @@ def latencies(nacs, fw):
     return out
 
 
+def panos_url(argv):
+    for i, arg in enumerate(argv):
+        if arg == "--panos" and i + 1 < len(argv):
+            return argv[i + 1]
+        if arg.startswith("--panos="):
+            return arg.split("=", 1)[1]
+    return os.environ.get("PANOS_URL") or None
+
+
 def main(argv):
     want_json = "--json" in argv
     now = int(time.time())
@@ -180,7 +194,12 @@ def main(argv):
     fab = R.fabric()
     nacs = R.nac(now)
     leases = R.ddi(now)
-    fw = R.firewall()
+    url = panos_url(argv)
+    if url:
+        fw = R.panos_firewall(url, os.environ.get("PANOS_KEY", ""),
+                              vrfs={k[0] for k in fab}, leases=leases)
+    else:
+        fw = R.firewall()
     findings = reconcile(fab, nacs, leases, fw, now, R.infra())
     lat = latencies(nacs, fw)
 

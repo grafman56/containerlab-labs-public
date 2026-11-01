@@ -310,6 +310,37 @@ def firewall(fw="fw-a"):
     return parse_firewall(raw)
 
 
+
+def panos_firewall(url, key="", vrfs=(), leases=None):
+    """The same register, read from a PAN-OS XML API instead of nftables.
+
+    PAN-OS keeps an IP-to-user table and per-IP tags. It has no MAC, no VRF
+    name and no publication time, so:
+      - role comes from the role: tag; an address with no role tag is skipped
+      - user comes from the IP-to-user table ("" for an anonymous visitor)
+      - vrf comes from the vrf: tag, which is a slug, so it is mapped back to a
+        real VRF name from `vrfs`
+      - mac is joined from DDI by address, the same edge publish.py used. That
+        means LEASE_REASSIGNED cannot fire against this register: the MAC is
+        always the current lease holder's.
+      - published_at is 0, so publication latency is not reported
+    """
+    import panos
+    users = panos.mappings(url, key)
+    by_slug = {re.sub(r"[^a-z0-9]+", "-", v.lower()).strip("-")[:40]: v for v in vrfs}
+    mac_by_ip = {l["ip"]: m for m, l in (leases or {}).items()}
+    out = {}
+    for ip, tags in panos.tags(url, key).items():
+        role = next((t[len("role:"):] for t in sorted(tags) if t.startswith("role:")), None)
+        if role is None:
+            continue
+        slug = next((t[len("vrf:"):] for t in sorted(tags) if t.startswith("vrf:")), "")
+        out[ip] = {"ip": ip, "role": role, "user": users.get(ip) or "",
+                   "mac": mac_by_ip.get(ip, ""), "published_at": 0,
+                   "vrf": by_slug.get(slug, slug)}
+    return out
+
+
 def parse_firewall(raw):
     out = {}
     try:

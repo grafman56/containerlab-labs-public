@@ -171,6 +171,27 @@ def check_panos():
             '<tag><member>role:staff</member></tag></entry><count>1</count></result></response>')
     assert panos.parse_tags(tags) == {"10.10.10.100": {"role:staff"}}
 
+    # The PAN-OS register: role and vrf from tags, user from the mapping table,
+    # MAC joined from DDI by address, anonymous visitors kept (not "stale").
+    import registers
+    orig = (panos.mappings, panos.tags)
+    panos.mappings = lambda u, k: {"10.10.10.100": "jsmith@campus.edu"}
+    panos.tags = lambda u, k: {"10.10.10.100": {"role:staff", "vrf:tenant-a"},
+                               "10.30.30.100": {"role:visitor", "vrf:eduroam"},
+                               "10.99.99.9": {"site:x"}}
+    try:
+        got = registers.panos_firewall(
+            "http://x", "", vrfs={"TENANT-A", "EDUROAM"},
+            leases={"aa:c1:ab:fe:fc:8a": {"ip": "10.10.10.100"},
+                    "aa:c1:ab:a9:36:e2": {"ip": "10.30.30.100"}})
+    finally:
+        panos.mappings, panos.tags = orig
+    assert sorted(got) == ["10.10.10.100", "10.30.30.100"], got  # no role tag: skipped
+    assert got["10.10.10.100"]["user"] == "jsmith@campus.edu"
+    assert got["10.10.10.100"]["vrf"] == "TENANT-A"
+    assert got["10.10.10.100"]["mac"] == "aa:c1:ab:fe:fc:8a"
+    assert got["10.30.30.100"]["user"] == "" and got["10.30.30.100"]["mac"] == "aa:c1:ab:a9:36:e2"
+
     # Without the flag or the variable, publish.py does nothing extra.
     os.environ.pop("PANOS_URL", None)
     assert publish.panos_target(["--expire"]) is None

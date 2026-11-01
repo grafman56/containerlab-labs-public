@@ -203,6 +203,8 @@ disagree. Read-only.
 ./labctl reconcile
 ```
 
+To publish to, and reconcile against, a PAN-OS XML API such as the `panos-emulator` lab instead of the nftables stand-in, add `--panos URL` to `./labctl publish` and `./labctl reconcile`. It is optional. See `reconcile/README.md`.
+
 The short version of why it exists: the fabric and the NAC are keyed on MAC,
 the firewall is keyed on IP, and only the DHCP lease holds the edge between
 them. See `reconcile/README.md`.
