@@ -81,7 +81,8 @@ policy() { # policy <ip> allow|deny : what the firewall would do with ssh from t
 # verify-identity can leave the wifi station down. Bring it up before starting.
 wifi_up() { docker exec "$staff" wpa_cli -i wlan0 status 2>/dev/null | grep -q wpa_state=COMPLETED; }
 if ! wifi_up; then
-  reauth_wifi
+  docker exec "$staff" ip link set wlan0 up
+  sleep 2; reauth_wifi
   for _ in $(seq 1 15); do wifi_up && break; sleep 2; done
   wifi_up || say "warning: wifi station did not associate; checks on 10.10.10.100 will fail"
 fi
