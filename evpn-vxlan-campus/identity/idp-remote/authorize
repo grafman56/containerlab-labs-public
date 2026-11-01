@@ -1,0 +1,9 @@
+# This server owns realm remote.edu. It is the ONLY place the visitor's
+# credential exists, and the only place the inner identity is ever visible.
+#
+# Note what it does NOT return: no Tunnel-Private-Group-ID. The home
+# institution does not get to choose which VLAN its user lands in on someone
+# else's campus. The visited site decides that locally, which is why the
+# visitor ends up in the eduroam zone by default rather than by instruction.
+visitor@remote.edu  Cleartext-Password := "roampass"
+    Reply-Message = "eduroam-visitor"

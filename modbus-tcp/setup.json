@@ -1,0 +1,44 @@
+{
+  "server_list": {
+    "modbus": {
+      "comm": "tcp",
+      "host": "0.0.0.0",
+      "port": 5020,
+      "framer": "socket"
+    }
+  },
+  "device_list": {
+    "device": {
+      "setup": {
+        "co size": 10,
+        "di size": 10,
+        "hr size": 10,
+        "ir size": 10,
+        "shared blocks": false,
+        "type exception": false,
+        "defaults": {
+          "value": {"bits": 0, "uint16": 0, "uint32": 0, "float32": 0.0, "string": " "},
+          "action": {"bits": null, "uint16": null, "uint32": null, "float32": null, "string": null}
+        }
+      },
+      "invalid": [],
+      "write": [30, 31],
+      "bits": [
+        {"addr": 0, "value": 1},
+        {"addr": 1, "value": 0},
+        {"addr": 10, "value": 1},
+        {"addr": 11, "value": 0}
+      ],
+      "uint16": [
+        {"addr": 20, "value": 230},
+        {"addr": 21, "value": 42},
+        {"addr": 30, "value": 120},
+        {"addr": 31, "value": 60}
+      ],
+      "uint32": [],
+      "float32": [],
+      "string": [],
+      "repeat": []
+    }
+  }
+}

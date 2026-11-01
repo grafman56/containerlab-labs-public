@@ -1,0 +1,86 @@
+---
+# Audit or reapply the fixed Linux-bridge access fabric in the iBGP RR lab.
+- name: Manage the iBGP RR access fabric
+  hosts: access_switches
+  gather_facts: false
+
+  vars:
+    access_state: audit
+    access_bridge: br-access
+    access_vlans: [120, 121, 122]
+    access_setup: /setup-access-switch.sh
+
+  tasks:
+    - name: Validate the requested access state
+      ansible.builtin.assert:
+        that:
+          - access_state in ['audit', 'present']
+          - switch_access_ports | length == access_vlans | length
+        fail_msg: Set access_state to audit or present with one port per VLAN.
+
+    - name: Reapply the fixed access fabric baseline
+      when: access_state == 'present'
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - '{{ switch_container }}'
+          - ip
+          - link
+          - delete
+          - '{{ access_bridge }}'
+      register: access_bridge_delete
+      failed_when: access_bridge_delete.rc not in [0, 1]
+      changed_when: access_bridge_delete.rc == 0
+
+    - name: Configure the fixed access fabric baseline
+      when: access_state == 'present'
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - '{{ switch_container }}'
+          - bash
+          - '{{ access_setup }}'
+          - '{{ switch_trunk_port }}'
+          - '{{ switch_access_ports[0] }}'
+          - '{{ switch_access_ports[1] }}'
+          - '{{ switch_access_ports[2] }}'
+      changed_when: true
+
+    - name: Collect VLAN state
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - '{{ switch_container }}'
+          - bridge
+          - vlan
+          - show
+      register: access_vlan_state
+      changed_when: false
+
+    - name: Verify every configured VLAN is present
+      ansible.builtin.assert:
+        that: >-
+          access_vlans | map('string') | reject('in', access_vlan_state.stdout) | list | length == 0
+        fail_msg: The switch VLAN state does not match the fixed access baseline.
+
+    - name: Collect MAC forwarding state
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - '{{ switch_container }}'
+          - bridge
+          - fdb
+          - show
+          - br
+          - '{{ access_bridge }}'
+      register: access_fdb_state
+      changed_when: false
+
+    - name: Verify the access bridge exists
+      ansible.builtin.assert:
+        that: access_bridge in access_fdb_state.stdout
+        fail_msg: The switch has no configured access bridge.

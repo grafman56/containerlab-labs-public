@@ -1,0 +1,10 @@
+# Local campus accounts. Realm campus.edu is ours, so these authenticate here
+# and never leave the building.
+#
+# Tunnel-* is the dynamic VLAN assignment. All three attributes are required
+# together; two of the three silently does nothing.
+jsmith@campus.edu  Cleartext-Password := "labpass"
+    Tunnel-Type = VLAN,
+    Tunnel-Medium-Type = IEEE-802,
+    Tunnel-Private-Group-ID = "10",
+    Reply-Message = "staff"

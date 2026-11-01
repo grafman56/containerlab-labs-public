@@ -1,0 +1,23 @@
+---
+all:
+  vars:
+    ansible_connection: ssh
+    ansible_user: replace-with-your-ssh-user
+  children:
+    edge_policy:
+      hosts:
+        p1:
+          ansible_host: replace-with-your-containerlab-host
+          policy_container: clab-ibgp-rr-p1
+    access_switches:
+      hosts:
+        sw1:
+          ansible_host: replace-with-your-containerlab-host
+          switch_container: clab-ibgp-rr-sw1
+          switch_trunk_port: eth2
+          switch_access_ports: [eth1, eth3, eth4]
+        sw2:
+          ansible_host: replace-with-your-containerlab-host
+          switch_container: clab-ibgp-rr-sw2
+          switch_trunk_port: eth1
+          switch_access_ports: [eth2, eth3, eth4]

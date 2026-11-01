@@ -1,0 +1,175 @@
+# Lab registry: one entry per lab in this repository.
+#
+# This file is the single source of truth for lab identity. ./labctl reads it
+# to list, check, deploy and destroy a lab. ./validate-repository.sh reads it
+# to find the topologies it must check.
+#
+# Only standard TOML is used, so the driver needs nothing beyond the Python
+# standard library. The static validator still uses PyYAML for full topology
+# parsing; see requirements.txt.
+#
+# Schema and tailoring notes: docs/lifecycle.md
+#
+# Rules this file is checked against:
+#   - every */<lab>.clab.yml in the repository has an entry here, and no entry
+#     points at a topology that does not exist
+#   - the topology's own `name:` matches the entry, so the clab-<name>- prefix
+#     is predictable
+#   - mgmt_subnet here matches the topology, and no two labs share one
+#   - every image is pinned by tag or digest; `latest` is rejected
+
+version = 1
+
+# ---------------------------------------------------------------------------
+# FRR labs. Direct containerlab deploy, no host kernel work.
+# ---------------------------------------------------------------------------
+
+[labs.ibgp-rr]
+dir = "ibgp-rr"
+topology = "ibgp-rr.clab.yml"
+summary = "OSPF underlay, redundant iBGP route reflectors, ISP/customer eBGP edge, access-annex VLANs 120-122"
+mgmt_subnet = "172.100.100.0/24"
+images = ["quay.io/frrouting/frr:10.7.0", "alpine:3.20"]
+verify = ["verify.sh"]
+
+
+[labs.evpn-vxlan]
+dir = "evpn-vxlan"
+topology = "evpn-vxlan.clab.yml"
+summary = "Two spines, two leaves, eBGP underlay, EVPN overlay with one stretched L2 VNI"
+mgmt_subnet = "172.100.110.0/24"
+images = ["quay.io/frrouting/frr:10.7.0", "alpine:3.20"]
+verify = ["verify.sh"]
+
+
+[labs.evpn-vxlan-fabric]
+dir = "evpn-vxlan-fabric"
+topology = "evpn-vxlan-fabric.clab.yml"
+summary = "Ten-leaf EVPN-VXLAN data-centre fabric with a spine pair"
+mgmt_subnet = "172.100.111.0/24"
+images = ["quay.io/frrouting/frr:10.7.0", "alpine:3.20"]
+verify = ["verify.sh"]
+
+[labs.evpn-vxlan-ospf]
+dir = "evpn-vxlan-ospf"
+topology = "evpn-vxlan-ospf.clab.yml"
+summary = "EVPN-VXLAN overlay over an OSPF underlay instead of eBGP"
+mgmt_subnet = "172.100.113.0/24"
+images = ["quay.io/frrouting/frr:10.7.0", "alpine:3.20"]
+verify = ["verify.sh"]
+
+[labs.sdwan-dual-transport]
+dir = "sdwan-dual-transport"
+topology = "sdwan-dual-transport.clab.yml"
+summary = "Dual ISP transports, GRE overlays, BGP over the overlays, policy-preferred failover"
+mgmt_subnet = "172.102.100.0/24"
+images = ["quay.io/frrouting/frr:10.7.0"]
+verify = ["verify.sh"]
+
+
+[labs.cin-rphy-transport]
+dir = "cin-rphy-transport"
+topology = "cin-rphy-transport.clab.yml"
+summary = "Cable access transport: redundant RPD, RPA, hub, CMTS, DSR and an AAR placeholder"
+mgmt_subnet = "172.103.100.0/24"
+images = ["quay.io/frrouting/frr:10.7.0"]
+verify = ["verify.sh"]
+
+
+# ---------------------------------------------------------------------------
+# Campus lab. Two locally built images and a post-deploy radio attach.
+# ---------------------------------------------------------------------------
+
+[labs.evpn-vxlan-campus]
+dir = "evpn-vxlan-campus"
+topology = "evpn-vxlan-campus.clab.yml"
+summary = "Two-site EVPN-VXLAN campus with NAC, DDI, firewall identity publication and reconciliation"
+mgmt_subnet = "172.100.114.0/24"
+images = ["quay.io/frrouting/frr:10.7.0", "alpine:3.20"]
+verify = ["verify.sh", "verify-identity.sh"]
+# The topology references both images, so both must be built before deploy.
+# These tags must stay in step with evpn-vxlan-campus.clab.yml.
+docker_builds = [
+  { image = "campus-firewall:1.0.0", context = "firewall" },
+  { image = "campus-identity:1.1.0", context = "identity" },
+]
+# The FRR nodes bind runtime/<node>:/var/run/frr and the daemons inside the
+# image run as frr:frr (uid:gid 100:101). The driver creates one directory per
+# such bind and applies this owner, so the daemons can write their pid files.
+runtime_owner = "100:101"
+
+[labs.evpn-vxlan-campus.hooks]
+# Radios cannot be declared in a topology file. mac80211_hwsim creates its
+# phys in the host namespace, so they are moved into the nodes afterwards.
+post_deploy = [["identity/wireless-attach.sh"]]
+pre_destroy = [["identity/wireless-detach.sh"]]
+
+# ---------------------------------------------------------------------------
+# Host-unsafe lab. Loads a kernel module and uses host networking, so it must
+# run through the fixed automation templates on the shared host.
+# ---------------------------------------------------------------------------
+
+[labs.wireless-radius-8021x]
+dir = "wireless-radius-8021x"
+topology = "wireless-radius-8021x.clab.yml"
+summary = "Virtual AP and supplicant over mac80211_hwsim, FreeRADIUS WPA2-Enterprise PEAP"
+mgmt_subnet = "172.101.1.0/24"
+images = [
+  "freeradius/freeradius-server:3.2.7@sha256:42b05de4405b1e745686b9ed0f70307fd43e998b850b3e6bd936733a8c260595",
+]
+verify = ["verify.sh"]
+docker_builds = [{ image = "wireless-lab-tools:1.0.0", context = "." }]
+
+[labs.wireless-radius-8021x.hooks]
+pre_deploy = [["lifecycle.sh", "pre-deploy"]]
+post_deploy = [["lifecycle.sh", "post-deploy"]]
+pre_destroy = [["lifecycle.sh", "pre-destroy"]]
+post_destroy = [["lifecycle.sh", "post-destroy"]]
+
+# ---------------------------------------------------------------------------
+# POC. No verify script yet; the ns-3 image is built outside this repository.
+# ---------------------------------------------------------------------------
+
+[labs.docsis-pnm-poc]
+dir = "docsis-pnm-poc"
+topology = "docsis-pnm-poc.clab.yml"
+summary = "Containerlab runner for the local CableLabs ns-3 DOCSIS image"
+mgmt_subnet = "172.104.1.0/24"
+images = ["docsis-ns3-poc:ns3.41"]
+verify = []
+# The ns-3 image must be present locally. It is not in a public registry.
+external_images = ["docsis-ns3-poc:ns3.41"]
+
+# ---------------------------------------------------------------------------
+# Industrial protocols. The simulator image is built locally; OpenPLC is pinned.
+# ---------------------------------------------------------------------------
+
+[labs.modbus-tcp]
+dir = "modbus-tcp"
+topology = "modbus-tcp.clab.yml"
+summary = "Modbus simulator and client with an OpenPLC Runtime v4 soft PLC"
+mgmt_subnet = "172.100.120.0/24"
+images = ["ghcr.io/autonomy-logic/openplc-runtime:v4.3.1"]
+verify = ["verify.sh"]
+docker_builds = [{ image = "modbus-lab:3.12.1", context = "." }]
+
+# ---------------------------------------------------------------------------
+# netlab lab. Not deployed by containerlab, but it is part of the lab estate,
+# so it belongs in the registry and in the drift checks.
+# ---------------------------------------------------------------------------
+
+[labs.enterprise-fabric]
+dir = "enterprise-fabric"
+topology = "topology.yml"
+driver = "netlab"
+summary = "Six-node SR Linux fabric: OSPF underlay, iBGP route reflectors, SSH/Ansible management, gNMI telemetry"
+# Topology declares its management range in `addressing.mgmt.ipv4`, and the
+# range collides with the Containerlab default. It must be reassigned before
+# any deployment. No value here until that change is made.
+mgmt_subnet = ""
+# README documents `netlab validate`, but the repository holds no validation
+# file, so that command has nothing to run. Add the file and list it here.
+verify = []
+# A small host is not a safe target
+# for six network-OS nodes plus Telegraf, InfluxDB and Grafana.
+min_free_memory_mb = 4096

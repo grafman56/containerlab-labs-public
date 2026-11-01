@@ -1,0 +1,65 @@
+#!/usr/sbin/nft -f
+# Zone policy for the campus internet edge.
+#
+# This is the lab's stand-in for PAN-OS security policy. The shape is the
+# same one a real campus runs: zones are static and few, membership is
+# assigned dynamically by 802.1X, and the only traffic that crosses a zone
+# boundary is traffic a rule explicitly permits.
+#
+# Interfaces to zones:
+#   eth1, eth4     campus   (border leaf pair, VRF TENANT-A)
+#   eth1.30, eth4.30 guest  (border leaf pair, VRF EDUROAM) <- visitors
+#   eth2     internet (ISP, campus side)
+#   eth2.30  internet (ISP, guest side)
+#   eth3     campus   (area 0 core, the non-fabric buildings)
+
+flush ruleset
+
+table inet zones {
+    # A set rather than a literal list, so adding a zone is a data change.
+    # ZONE-EDUROAM is the VRF device itself, and it has to be in here.
+    # For a VRF-enslaved interface the forward hook runs with the l3mdev
+    # master as iif/oif, not the subinterface -- so a rule naming only
+    # eth1.30 and eth2.30 never matches and the traffic falls through to the
+    # drop. The symptom is a zone that is perfectly isolated and completely
+    # unusable, with the drop counter incrementing on traffic you meant to
+    # permit. Always read the counters before believing a policy.
+    set guest_ifaces   { type ifname; elements = { "eth1.30", "eth2.30", "eth4.30", "ZONE-EDUROAM" } }
+    set campus_ifaces  { type ifname; elements = { "eth1", "eth3", "eth4" } }
+    set inet_ifaces    { type ifname; elements = { "eth2" } }
+
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+
+        # Return traffic for anything already permitted. Stateful inspection
+        # is the whole reason a firewall beats an ACL, and it is why the rules
+        # below only have to describe the direction a flow STARTS in.
+        ct state established,related accept
+        ct state invalid drop
+
+        # Guest to internet: the only thing an eduroam visitor may do.
+        iifname @guest_ifaces oifname @inet_ifaces  accept
+        iifname @guest_ifaces oifname @guest_ifaces accept
+
+        # Campus to internet, and campus to itself.
+        iifname @campus_ifaces oifname @inet_ifaces  accept
+        iifname @campus_ifaces oifname @campus_ifaces accept
+
+        # Everything else falls through to the policy: drop.
+        #
+        # That includes guest -> campus and campus -> guest, which is the
+        # pair this whole zone exists to prevent. Note it also catches the
+        # path that routing alone could not: a visitor reaching campus by way
+        # of the ISP, because this lab has no NAT and the edge advertises
+        # internal prefixes. Routing made that reachable; policy does not
+        # care how the packet arrived.
+        log prefix "zone-deny " limit rate 5/minute counter
+    }
+
+    chain input {
+        type filter hook input priority filter; policy accept;
+    }
+    chain output {
+        type filter hook output priority filter; policy accept;
+    }
+}

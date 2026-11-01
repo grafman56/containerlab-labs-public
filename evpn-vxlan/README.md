@@ -1,6 +1,6 @@
 # FRR EVPN-VXLAN: Two Spines, Two Leaves
 
-This deployable lab demonstrates a routed eBGP underlay, redundant loopback-based eBGP EVPN sessions, VXLAN VNI 1010, and two endpoints in the same stretched subnet.
+This deployable lab demonstrates a routed eBGP underlay, redundant loopback-based eBGP EVPN sessions, two VXLAN VNIs (1010 and 1020), a VRF/L3VNI for symmetric IRB between them, and BGP policy (route-maps, a prefix-list, an ACL) on top of it.
 
 ## Topology
 
@@ -28,7 +28,9 @@ Spines are control-plane and underlay transit nodes; they never terminate VXLAN.
 | spine2–leaf2 | `10.0.0.6/31`, `10.0.0.7/31` |
 | spine loopbacks | `10.255.255.1/32`, `10.255.255.2/32` |
 | leaf VTEPs | `10.255.0.1/32`, `10.255.0.2/32` |
-| tenant segment | `10.10.10.0/24`, VNI `1010` |
+| tenant segment (VNI 1010) | `10.10.10.0/24`, VNI `1010` |
+| tenant segment (VNI 1020) | `10.20.20.0/24`, VNI `1020` |
+| tenant VRF | `TENANT-A`, L3VNI `4100` |
 
 ## Deploy
 
@@ -53,8 +55,10 @@ docker exec clab-evpn-vxlan-leaf1 ip route get 10.255.0.2
 docker exec clab-evpn-vxlan-leaf1 vtysh -c "show bgp l2vpn evpn summary"
 docker exec clab-evpn-vxlan-leaf1 vtysh -c "show bgp l2vpn evpn route"
 docker exec clab-evpn-vxlan-leaf1 vtysh -c "show evpn vni"
+docker exec clab-evpn-vxlan-leaf1 vtysh -c "show bgp vrf TENANT-A ipv4 unicast"
 docker exec clab-evpn-vxlan-leaf1 bridge fdb show br br10
-docker exec clab-evpn-vxlan-host1 ping -c 3 10.10.10.12
+docker exec clab-evpn-vxlan-host1 ping -c 3 10.10.10.12   # same VNI, cross-leaf
+docker exec clab-evpn-vxlan-host1 ping -c 3 10.20.20.13   # inter-VNI, routed via TENANT-A
 ```
 
 ## Failure drills
@@ -69,7 +73,12 @@ Capture state before and after each failure. Restore the original configuration 
 
 ## Scope
 
-This first stage proves L2 VNI operation and Type 3 discovery. The next stage adds distributed anycast gateways, tenant VRF/L3 VNI, symmetric IRB, and a border-leaf Type 5 route.
+Proves L2 VNI operation, Type 3 discovery, and symmetric IRB across two
+VNIs via a shared tenant VRF/L3VNI, with BGP policy gating what gets
+redistributed into it. Does not add a border-leaf Type 5 route out to an
+external network, or ESI multihoming for dual-attached hosts. For a
+bigger fleet exercising the same design at scale (4 spines, 10 leaves),
+see `../evpn-vxlan-fabric/`.
 
 ## Destroy
 

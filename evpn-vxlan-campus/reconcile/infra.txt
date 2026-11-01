@@ -1,0 +1,37 @@
+# Infrastructure that is not expected to carry a NAC session.
+#
+# Without this file every reconciliation report is six lines of noise and one
+# line of signal, and nobody reads it twice. Classifying infrastructure is not
+# housekeeping: it is the step that makes "in the fabric but never
+# authenticated" mean something.
+#
+# This is the IPAM half of a DDI system doing its real job. BlueCat holds
+# these as static/reserved objects on the network, tagged by what they are,
+# and a reconciliation job reads them from the API instead of from a text
+# file. The file is the stand-in; the lookup is the point. An address that is
+# in neither a lease nor a reservation is, by definition, something nobody
+# recorded -- and that is the finding.
+#
+# One entry per line: an IPv4 address, or leaf/interface for a port that is
+# exempt from 802.1X (server ports, uplinks, AP management).
+
+# Identity and DDI services, on leaf2a.
+10.20.20.20     # nac          -- campus RADIUS (ClearPass stand-in)
+10.20.20.30     # fed          -- eduroam roaming operator
+10.20.20.40     # idp-remote   -- visitor's home institution
+10.20.20.50     # ddi          -- Kea + BIND (BlueCat stand-in)
+
+# The authenticators themselves. An AP or an access switch cannot be behind
+# its own 802.1X, and an AP needs a management address before hostapd starts
+# -- see gotcha 8 in identity/README.md.
+10.10.10.20     # ap-a1        -- WPA2-Enterprise access point
+10.10.10.21     # edge-a1      -- wired 802.1X authenticator
+
+# Plain servers on access ports, predating the identity edge.
+leaf1a/eth5     # host1
+leaf2a/eth5     # fed -- eduroam roaming operator
+leaf2a/eth6     # idp-remote
+leaf2a/eth7     # ddi
+leaf2a/eth4     # nac
+leaf1b/eth3     # host3
+leaf2b/eth3     # host4

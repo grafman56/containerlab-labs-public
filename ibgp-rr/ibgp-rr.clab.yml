@@ -1,7 +1,9 @@
 name: ibgp-rr
 
-# Explicit management subnet. Choose a different subnet if this range overlaps
-# a Docker network on the target host.
+# Explicit mgmt subnet: containerlab's default 172.20.20.0/24 overlaps the
+# monitoring stack's 172.20.0.0/16 on PC1. 172.100.100.0/24 is well clear of
+# every existing Docker network (bridge/gitlab/semaphore/monitoring/netbox/
+# vault/homepage/llm_memory/minio all live in 172.17.0.0/16 - 172.25.0.0/16).
 mgmt:
   network: clab-ibgp-rr
   ipv4-subnet: 172.100.100.0/24
@@ -43,6 +45,59 @@ topology:
         - configs/daemons:/etc/frr/daemons
         - configs/e1.conf:/etc/frr/frr.conf
         - runtime/e1:/var/run/frr
+    isp1:
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/isp1.conf:/etc/frr/frr.conf
+        - runtime/isp1:/var/run/frr
+    sw1:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - scripts/setup-access-switch.sh:/setup-access-switch.sh:ro
+      exec:
+        - bash /setup-access-switch.sh eth2 eth1 eth3 eth4
+    sw2:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - scripts/setup-access-switch.sh:/setup-access-switch.sh:ro
+      exec:
+        - bash /setup-access-switch.sh eth1 eth2 eth3 eth4
+    client1:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.120.0.11/24 dev eth1
+    client2:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.120.0.12/24 dev eth1
+    client3:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.121.0.11/24 dev eth1
+    client4:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.121.0.12/24 dev eth1
+    client5:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.122.0.11/24 dev eth1
+    client6:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.122.0.12/24 dev eth1
 
   links:
     - endpoints: ["rr1:eth1", "rr2:eth1"]
@@ -54,3 +109,11 @@ topology:
     - endpoints: ["rr2:eth4", "p3:eth2"]
     - endpoints: ["p2:eth3", "p3:eth3"]
     - endpoints: ["p1:eth3", "e1:eth1"]
+    - endpoints: ["e1:eth2", "isp1:eth1"]
+    - endpoints: ["sw1:eth1", "client1:eth1"]
+    - endpoints: ["sw1:eth2", "sw2:eth1"]
+    - endpoints: ["sw2:eth2", "client2:eth1"]
+    - endpoints: ["sw1:eth3", "client3:eth1"]
+    - endpoints: ["sw2:eth3", "client4:eth1"]
+    - endpoints: ["sw1:eth4", "client5:eth1"]
+    - endpoints: ["sw2:eth4", "client6:eth1"]

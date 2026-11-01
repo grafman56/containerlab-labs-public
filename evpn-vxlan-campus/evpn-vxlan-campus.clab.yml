@@ -1,0 +1,388 @@
+name: evpn-vxlan-campus
+
+mgmt:
+  network: clab-evpn-vxlan-campus
+  ipv4-subnet: 172.100.114.0/24
+  ipv6-subnet: 3fff:172:100:114::/64
+
+topology:
+  defaults:
+    kind: linux
+
+  nodes:
+    spine1a:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/spine1a.conf:/etc/frr/frr.conf
+        - runtime/spine1a:/var/run/frr
+      exec:
+        - ip route del default
+    spine2a:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/spine2a.conf:/etc/frr/frr.conf
+        - runtime/spine2a:/var/run/frr
+      exec:
+        - ip route del default
+    spine1b:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/spine1b.conf:/etc/frr/frr.conf
+        - runtime/spine1b:/var/run/frr
+      exec:
+        - ip route del default
+    spine2b:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/spine2b.conf:/etc/frr/frr.conf
+        - runtime/spine2b:/var/run/frr
+      exec:
+        - ip route del default
+    leaf1a:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/leaf1a.conf:/etc/frr/frr.conf
+        - runtime/leaf1a:/var/run/frr
+        - scripts/setup-leaf.sh:/setup.sh:ro
+        - scripts/setup-leaf-identity.sh:/setup-identity.sh:ro
+      exec:
+        - ip route del default
+        - bash /setup.sh 10.255.0.1 br10 eth3 eth4 eth5
+        - bash /setup-identity.sh 10.255.0.1 eth4
+    leaf2a:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/leaf2a.conf:/etc/frr/frr.conf
+        - runtime/leaf2a:/var/run/frr
+        - scripts/setup-leaf.sh:/setup.sh:ro
+      exec:
+        - ip route del default
+        - bash /setup.sh 10.255.0.2 br20 eth3 eth4 eth5 eth6 eth7
+    leaf1b:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/leaf1b.conf:/etc/frr/frr.conf
+        - runtime/leaf1b:/var/run/frr
+        - scripts/setup-leaf.sh:/setup.sh:ro
+      exec:
+        - ip route del default
+        - bash /setup.sh 10.255.0.3 br10
+    leaf2b:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/leaf2b.conf:/etc/frr/frr.conf
+        - runtime/leaf2b:/var/run/frr
+        - scripts/setup-leaf.sh:/setup.sh:ro
+      exec:
+        - ip route del default
+        - bash /setup.sh 10.255.0.4 br20
+    bdr-a:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/bdr-a.conf:/etc/frr/frr.conf
+        - runtime/bdr-a:/var/run/frr
+        - scripts/setup-border.sh:/setup.sh:ro
+        - scripts/setup-border-identity.sh:/setup-identity.sh:ro
+      exec:
+        - ip route del default
+        - bash /setup.sh 10.255.1.1
+        - bash /setup-identity.sh 10.255.1.1
+    bdr-a2:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/bdr-a2.conf:/etc/frr/frr.conf
+        - runtime/bdr-a2:/var/run/frr
+        - scripts/setup-border.sh:/setup.sh:ro
+        - scripts/setup-border-identity.sh:/setup-identity.sh:ro
+      exec:
+        - ip route del default
+        - bash /setup.sh 10.255.1.3
+        - bash /setup-identity.sh 10.255.1.3
+    bdr-b:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/bdr-b.conf:/etc/frr/frr.conf
+        - runtime/bdr-b:/var/run/frr
+        - scripts/setup-border.sh:/setup.sh:ro
+      exec:
+        - ip route del default
+        - bash /setup.sh 10.255.1.2
+    bdr-b2:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/bdr-b2.conf:/etc/frr/frr.conf
+        - runtime/bdr-b2:/var/run/frr
+        - scripts/setup-border.sh:/setup.sh:ro
+      exec:
+        - ip route del default
+        - bash /setup.sh 10.255.1.4
+    inet-a:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/inet-a.conf:/etc/frr/frr.conf
+        - runtime/inet-a:/var/run/frr
+        - scripts/setup-isp-identity.sh:/setup-identity.sh:ro
+      exec:
+        - ip route del default
+        - bash /setup-identity.sh
+    inet-b:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/inet-b.conf:/etc/frr/frr.conf
+        - runtime/inet-b:/var/run/frr
+      exec:
+        - ip route del default
+    host1:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.10.10.11/24 dev eth1
+        - ip route add 10.20.20.0/24 via 10.10.10.1
+        - ip route add 203.0.113.0/24 via 10.10.10.1
+        - ping -c 1 -W 1 10.10.10.1
+    host2:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.20.20.12/24 dev eth1
+        - ip route add 10.10.10.0/24 via 10.20.20.1
+        - ip route add 203.0.113.0/24 via 10.20.20.1
+        - ping -c 1 -W 1 10.20.20.1
+    host3:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.10.10.13/24 dev eth1
+        - ip route add 10.20.20.0/24 via 10.10.10.1
+        - ip route add 203.0.113.0/24 via 10.10.10.1
+        - ping -c 1 -W 1 10.10.10.1
+    host4:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.20.20.14/24 dev eth1
+        - ip route add 10.10.10.0/24 via 10.20.20.1
+        - ip route add 203.0.113.0/24 via 10.20.20.1
+        - ping -c 1 -W 1 10.20.20.1
+    fw-a:
+      image: campus-firewall:1.0.0
+      cap-add: [NET_ADMIN, NET_RAW]
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/fw-a.conf:/etc/frr/frr.conf
+        - runtime/fw-a:/var/run/frr
+        - scripts/setup-fw-identity.sh:/setup-identity.sh:ro
+        - scripts/setup-fw-policy.sh:/setup-policy.sh:ro
+        - firewall:/policy
+      exec:
+        - ip route del default
+        - bash /setup-identity.sh
+        - bash -c "nohup /setup-policy.sh >/tmp/policy.log 2>&1 &"
+    fw-b:
+      image: campus-firewall:1.0.0
+      cap-add: [NET_ADMIN, NET_RAW]
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/fw-b.conf:/etc/frr/frr.conf
+        - runtime/fw-b:/var/run/frr
+      exec:
+        - ip route del default
+    inet-res:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/inet-res.conf:/etc/frr/frr.conf
+        - runtime/inet-res:/var/run/frr
+      exec:
+        - ip route del default
+    dist-a1:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/dist-a1.conf:/etc/frr/frr.conf
+        - runtime/dist-a1:/var/run/frr
+      exec:
+        - ip route del default
+    acc-a1:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/acc-a1.conf:/etc/frr/frr.conf
+        - runtime/acc-a1:/var/run/frr
+      exec:
+        - ip route del default
+    dist-b1:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/dist-b1.conf:/etc/frr/frr.conf
+        - runtime/dist-b1:/var/run/frr
+      exec:
+        - ip route del default
+    acc-b1:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/acc-b1.conf:/etc/frr/frr.conf
+        - runtime/acc-b1:/var/run/frr
+      exec:
+        - ip route del default
+    user-a1:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.101.10.50/24 dev eth1
+        - ip route add 10.0.0.0/8 via 10.101.10.1
+        - ip route add 203.0.113.0/24 via 10.101.10.1
+    user-b1:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.102.10.50/24 dev eth1
+        - ip route add 10.0.0.0/8 via 10.102.10.1
+        - ip route add 203.0.113.0/24 via 10.102.10.1
+
+    # ---- identity edge (campus A) -------------------------------------
+    # Roles are chosen by config, not by image; see identity/Dockerfile.
+    edge-a1:
+      image: campus-identity:1.1.0
+      cap-add: [NET_ADMIN, NET_RAW]
+      binds:
+        - identity:/cfg
+      exec:
+        - bash /cfg/edge/setup-edge.sh
+    sta-staff:
+      image: campus-identity:1.1.0
+      cap-add: [NET_ADMIN, NET_RAW]
+      binds:
+        - identity:/cfg
+      exec:
+        - ip link set eth1 up
+    sta-visitor:
+      image: campus-identity:1.1.0
+      cap-add: [NET_ADMIN, NET_RAW]
+      binds:
+        - identity:/cfg
+      exec:
+        - ip link set eth1 up
+    # ---- the access point ----------------------------------------------
+    # wlan0 is a mac80211_hwsim radio moved in from the host after deploy by
+    # identity/wireless-attach.sh, which labctl runs for you. hostapd does the
+    # dynamic VLAN assignment itself, so a station's RADIUS-assigned VLAN
+    # really does decide which VNI it lands in.
+    ap-a1:
+      image: campus-identity:1.1.0
+      cap-add: [NET_ADMIN, NET_RAW]
+      binds:
+        - identity:/cfg
+      exec:
+        - bash -c "nohup /cfg/ap/setup-ap.sh >/dev/null 2>&1 &"
+    # ---- identity services (campus A, VNI 1020) ------------------------
+    nac:
+      image: campus-identity:1.1.0
+      cap-add: [NET_ADMIN, NET_RAW]
+      binds:
+        - identity:/cfg
+      exec:
+        - bash -c "nohup /cfg/start-radius.sh 10.20.20.20/24 nac --eap >/dev/null 2>&1 &"
+    fed:
+      image: campus-identity:1.1.0
+      cap-add: [NET_ADMIN, NET_RAW]
+      binds:
+        - identity:/cfg
+      exec:
+        - bash -c "nohup /cfg/start-radius.sh 10.20.20.30/24 fed >/dev/null 2>&1 &"
+    idp-remote:
+      image: campus-identity:1.1.0
+      cap-add: [NET_ADMIN, NET_RAW]
+      binds:
+        - identity:/cfg
+      exec:
+        - bash -c "nohup /cfg/start-radius.sh 10.20.20.40/24 idp-remote --eap >/dev/null 2>&1 &"
+    ddi:
+      image: campus-identity:1.1.0
+      cap-add: [NET_ADMIN, NET_RAW]
+      binds:
+        - identity:/cfg
+      exec:
+        - bash -c "nohup /cfg/ddi/start-ddi.sh >/dev/null 2>&1 &"
+
+  links:
+    # --- campus A fabric ---
+    - endpoints: ["spine1a:eth1", "leaf1a:eth1"]
+    - endpoints: ["spine1a:eth2", "leaf2a:eth1"]
+    - endpoints: ["spine1a:eth3", "bdr-a:eth1"]
+    - endpoints: ["spine1a:eth6", "bdr-a2:eth1"]
+    - endpoints: ["spine2a:eth1", "leaf1a:eth2"]
+    - endpoints: ["spine2a:eth2", "leaf2a:eth2"]
+    - endpoints: ["spine2a:eth3", "bdr-a:eth2"]
+    - endpoints: ["spine2a:eth6", "bdr-a2:eth2"]
+    # --- campus B fabric ---
+    - endpoints: ["spine1b:eth1", "leaf1b:eth1"]
+    - endpoints: ["spine1b:eth2", "leaf2b:eth1"]
+    - endpoints: ["spine1b:eth3", "bdr-b:eth1"]
+    - endpoints: ["spine1b:eth7", "bdr-b2:eth1"]
+    - endpoints: ["spine2b:eth1", "leaf1b:eth2"]
+    - endpoints: ["spine2b:eth2", "leaf2b:eth2"]
+    - endpoints: ["spine2b:eth3", "bdr-b:eth2"]
+    - endpoints: ["spine2b:eth5", "bdr-b2:eth2"]
+    # --- site-to-site point-to-point link ---
+    - endpoints: ["spine2a:eth4", "spine1b:eth4"]
+    # --- routed firewall handoffs, one link per border leaf ---
+    - endpoints: ["bdr-a:eth3", "fw-a:eth1"]
+    - endpoints: ["bdr-a2:eth3", "fw-a:eth4"]
+    - endpoints: ["fw-a:eth2", "inet-a:eth1"]
+    - endpoints: ["fw-a:eth3", "spine1a:eth5"]
+    - endpoints: ["bdr-b:eth3", "fw-b:eth1"]
+    - endpoints: ["bdr-b2:eth3", "fw-b:eth4"]
+    - endpoints: ["fw-b:eth2", "inet-b:eth1"]
+    - endpoints: ["fw-b:eth3", "spine1b:eth6"]
+    # --- non-fabric campus buildings, one per site ---
+    - endpoints: ["spine1a:eth4", "dist-a1:eth1"]
+    - endpoints: ["spine2a:eth5", "dist-a1:eth2"]
+    - endpoints: ["dist-a1:eth3", "acc-a1:eth1"]
+    - endpoints: ["acc-a1:eth2", "user-a1:eth1"]
+    - endpoints: ["spine1b:eth5", "dist-b1:eth1"]
+    - endpoints: ["spine2b:eth4", "dist-b1:eth2"]
+    - endpoints: ["dist-b1:eth3", "acc-b1:eth1"]
+    - endpoints: ["acc-b1:eth2", "user-b1:eth1"]
+    - endpoints: ["acc-b1:eth3", "inet-res:eth1"]
+    # --- fabric hosts ---
+    - endpoints: ["leaf1a:eth3", "host1:eth1"]
+    - endpoints: ["leaf2a:eth3", "host2:eth1"]
+    - endpoints: ["leaf1b:eth3", "host3:eth1"]
+    - endpoints: ["leaf2b:eth3", "host4:eth1"]
+    # --- identity edge: access switch under leaf1a, clients under it ---
+    - endpoints: ["leaf1a:eth4", "edge-a1:eth1"]
+    - endpoints: ["edge-a1:eth2", "sta-staff:eth1"]
+    - endpoints: ["edge-a1:eth3", "sta-visitor:eth1"]
+    # the AP's 802.1Q trunk, carrying whatever VLANs its stations land in
+    - endpoints: ["edge-a1:eth4", "ap-a1:eth1"]
+    # --- identity services: all on leaf2a's VNI 1020 ---
+    - endpoints: ["leaf2a:eth4", "nac:eth1"]
+    - endpoints: ["leaf2a:eth5", "fed:eth1"]
+    - endpoints: ["leaf2a:eth6", "idp-remote:eth1"]
+    - endpoints: ["leaf2a:eth7", "ddi:eth1"]
+    # Second DDI leg, directly on the staff segment. See identity/README for
+    # why this is a leg rather than a DHCP relay on the leaf.
+    - endpoints: ["leaf1a:eth5", "ddi:eth2"]

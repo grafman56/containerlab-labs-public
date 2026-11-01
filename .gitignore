@@ -17,3 +17,4 @@ __pycache__/
 **/netlab.lock
 **/config/
 .tmp/
+**/ansible/inventory.yml

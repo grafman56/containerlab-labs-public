@@ -1,0 +1,97 @@
+---
+# Apply or audit the known-good edge policy for the named iBGP RR lab.
+# The default is audit. Set policy_state=present only after a scoped deployment.
+- name: Manage the iBGP RR edge policy boundary
+  hosts: edge_policy
+  gather_facts: false
+
+  vars:
+    policy_state: audit
+    expected_policy_lines:
+      - ip prefix-list EDGE-CUSTOMER-IN seq 10 permit 203.0.113.0/24
+      - ip prefix-list EDGE-CUSTOMER-IN seq 100 deny 0.0.0.0/0 le 32
+      - bgp community-list standard EDGE-CUSTOMER-COMM permit 65001:100
+      - route-map EDGE-CUSTOMER-IN permit 10
+      - route-map EDGE-CUSTOMER-IN deny 100
+      - route-map CORE-EDGE-OUT permit 10
+      - route-map CORE-EDGE-OUT deny 100
+      - neighbor 172.16.1.2 route-map EDGE-CUSTOMER-IN in
+      - neighbor 10.0.0.11 route-map CORE-EDGE-OUT out
+      - neighbor 10.0.0.12 route-map CORE-EDGE-OUT out
+
+  tasks:
+    - name: Validate the requested policy state
+      ansible.builtin.assert:
+        that:
+          - policy_state in ['audit', 'present']
+        fail_msg: Set policy_state to audit or present.
+
+    - name: Apply the reviewed edge policy to P1
+      when: policy_state == 'present'
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - '{{ policy_container }}'
+          - vtysh
+          - -c
+          - configure terminal
+          - -c
+          - ip prefix-list EDGE-CUSTOMER-IN seq 10 permit 203.0.113.0/24
+          - -c
+          - ip prefix-list EDGE-CUSTOMER-IN seq 100 deny 0.0.0.0/0 le 32
+          - -c
+          - bgp community-list standard EDGE-CUSTOMER-COMM permit 65001:100
+          - -c
+          - route-map EDGE-CUSTOMER-IN permit 10
+          - -c
+          - match ip address prefix-list EDGE-CUSTOMER-IN
+          - -c
+          - set local-preference 150
+          - -c
+          - route-map EDGE-CUSTOMER-IN deny 100
+          - -c
+          - route-map CORE-EDGE-OUT permit 10
+          - -c
+          - match community EDGE-CUSTOMER-COMM
+          - -c
+          - route-map CORE-EDGE-OUT deny 100
+          - -c
+          - router bgp 65000
+          - -c
+          - address-family ipv4 unicast
+          - -c
+          - neighbor 172.16.1.2 route-map EDGE-CUSTOMER-IN in
+          - -c
+          - neighbor 10.0.0.11 route-map CORE-EDGE-OUT out
+          - -c
+          - neighbor 10.0.0.12 route-map CORE-EDGE-OUT out
+          - -c
+          - end
+          - -c
+          - clear ip bgp 172.16.1.2 soft in
+          - -c
+          - clear ip bgp 10.0.0.11 soft out
+          - -c
+          - clear ip bgp 10.0.0.12 soft out
+      changed_when: true
+
+    - name: Collect the P1 policy and BGP attachment state
+      ansible.builtin.command:
+        argv:
+          - docker
+          - exec
+          - '{{ policy_container }}'
+          - vtysh
+          - -c
+          - show running-config
+      register: edge_policy_running_config
+      changed_when: false
+
+    - name: Verify the expected policy objects and attachments
+      ansible.builtin.assert:
+        that: >-
+          expected_policy_lines | reject('in', edge_policy_running_config.stdout) | list | length == 0
+        fail_msg: >-
+          The running P1 policy does not match the reviewed template. Deploy the
+          tracked baseline or run this template with policy_state=present.

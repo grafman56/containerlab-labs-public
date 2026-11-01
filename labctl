@@ -1,0 +1,790 @@
+#!/usr/bin/env python3
+"""One lifecycle driver for every lab in this repository.
+
+Usage: ./labctl <command> [arguments]
+
+Commands:
+  list [--markdown]        Show every lab from labs.toml.
+  check [--with-validator] Compare labs.toml with the topology sources.
+  doctor                   Inspect the host before a deploy.
+  prepare LAB [--dry-run]  Create runtime directories and build local images.
+  up LAB                   Deploy one lab.
+  verify LAB               Run the lab's verification scripts.
+  status [LAB]             Show running containers for one lab or all of them.
+  down LAB                 Destroy one lab.
+
+Every command that changes the host names one lab. There is no --all, and the
+driver never passes --all to Containerlab. Labs that declare automation_only
+are refused here on purpose: they must run through the fixed automation
+templates.
+
+labs.toml is the single source of truth. Only the Python standard library is
+used, so the lab host needs no packages. Topology facts are read with a small
+indentation reader, not a YAML parser; ./validate-repository.sh does the full
+parse with PyYAML, so a disagreement between the two shows up in CI.
+"""
+
+import argparse
+import ipaddress
+import shutil
+import subprocess
+import sys
+import tomllib
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+MANIFEST = ROOT / "labs.toml"
+
+EXIT_OK = 0
+EXIT_FAIL = 1
+EXIT_USAGE = 2
+
+
+class LabError(Exception):
+    """A problem the operator must fix, reported without a traceback."""
+
+
+# ---------------------------------------------------------------------------
+# Manifest
+# ---------------------------------------------------------------------------
+
+
+def load_manifest(path=MANIFEST):
+    try:
+        with open(path, "rb") as stream:
+            data = tomllib.load(stream)
+    except FileNotFoundError:
+        raise LabError("manifest not found: %s" % path)
+    except tomllib.TOMLDecodeError as error:
+        raise LabError("%s: %s" % (path, error))
+
+    if data.get("version") != 1:
+        raise LabError("%s: version must be 1, found %r" % (path, data.get("version")))
+
+    labs = data.get("labs") or {}
+    if not labs:
+        raise LabError("%s: no [labs.*] entries" % path)
+
+    for name, lab in labs.items():
+        lab.setdefault("driver", "containerlab")
+        lab.setdefault("verify", [])
+        lab.setdefault("images", [])
+        lab.setdefault("external_images", [])
+        lab.setdefault("docker_builds", [])
+        lab.setdefault("hooks", {})
+        lab.setdefault("summary", "")
+        lab.setdefault("mgmt_subnet", "")
+        lab.setdefault("runtime_owner", "")
+        lab.setdefault("automation_only", "")
+        lab.setdefault("automation_template", "")
+        lab.setdefault("min_free_memory_mb", 0)
+        lab["name"] = name
+    return labs
+
+
+def lab_by_name(labs, name):
+    if name not in labs:
+        raise LabError(
+            "unknown lab %r. Known labs: %s" % (name, ", ".join(sorted(labs)))
+        )
+    return labs[name]
+
+
+def lab_path(lab, *parts):
+    return ROOT / lab["dir"] / Path(*parts)
+
+
+# ---------------------------------------------------------------------------
+# Topology facts
+# ---------------------------------------------------------------------------
+
+
+def topology_facts(path):
+    """Read name, management subnet, kinds, images and bind sources.
+
+    This walks indentation only. It does not try to be a YAML parser: it
+    reads the fields the driver and the manifest checks need, and it leaves
+    a full parse to validate-repository.sh. A node image can come from the
+    node itself, from its kind, or from topology.defaults, so all three are
+    read and the node value wins.
+    """
+    facts = {
+        "name": "",
+        "mgmt_subnet": "",
+        "default_image": "",
+        "kinds": {},
+        "nodes": {},
+    }
+    top = ""
+    section = ""
+    node = None
+    kind = None
+    in_binds = False
+
+    for raw in path.read_text().splitlines():
+        text = raw.strip()
+        if not text or text.startswith("#"):
+            continue
+        indent = len(raw) - len(raw.lstrip())
+
+        if indent == 0:
+            top = "" if text.startswith("name:") else text.rstrip(":")
+            section = ""
+            node = None
+            kind = None
+            in_binds = False
+            if text.startswith("name:"):
+                facts["name"] = text.split(":", 1)[1].strip().strip("\"'")
+            continue
+
+        if top == "mgmt":
+            if indent == 2 and text.startswith("ipv4-subnet:"):
+                facts["mgmt_subnet"] = text.split(":", 1)[1].strip()
+            continue
+
+        if top != "topology":
+            continue
+
+        if indent == 2:
+            section = text.rstrip(":") if text.endswith(":") else ""
+            if section not in ("nodes", "kinds", "defaults"):
+                section = ""
+            node = None
+            kind = None
+            in_binds = False
+            continue
+
+        if section == "defaults":
+            if indent == 4 and text.startswith("image:"):
+                facts["default_image"] = text.split(":", 1)[1].strip().strip("\"'")
+            continue
+
+        if section == "kinds":
+            if indent == 4 and text.endswith(":"):
+                kind = text[:-1].strip().strip("\"'")
+                facts["kinds"][kind] = ""
+            elif indent == 6 and kind and text.startswith("image:"):
+                facts["kinds"][kind] = text.split(":", 1)[1].strip().strip("\"'")
+            continue
+
+        if section != "nodes":
+            continue
+
+        if indent == 4:
+            in_binds = False
+            node = None
+            if text.endswith(":"):
+                node = text[:-1].strip().strip("\"'")
+                facts["nodes"][node] = {"image": "", "kind": "", "binds": []}
+            continue
+
+        if node is None:
+            continue
+
+        if indent == 6:
+            in_binds = text.startswith("binds:")
+            if text.startswith("image:"):
+                facts["nodes"][node]["image"] = text.split(":", 1)[1].strip().strip("\"'")
+            elif text.startswith("kind:"):
+                facts["nodes"][node]["kind"] = text.split(":", 1)[1].strip().strip("\"'")
+            continue
+
+        if indent >= 8 and in_binds and text.startswith("- "):
+            facts["nodes"][node]["binds"].append(text[2:].strip().strip("\"'"))
+
+    for node_facts in facts["nodes"].values():
+        if not node_facts["image"]:
+            node_facts["image"] = (
+                facts["kinds"].get(node_facts["kind"], "") or facts["default_image"]
+            )
+    return facts
+
+
+def runtime_dirs(facts):
+    """Directories under runtime/ that the topology binds into a container."""
+    found = set()
+    for node in facts["nodes"].values():
+        for bind in node["binds"]:
+            source = bind.split(":", 1)[0]
+            if source.startswith("runtime/"):
+                found.add(source[len("runtime/"):])
+    return sorted(found)
+
+
+def is_pinned(image):
+    """An image reference must carry a tag or a digest, and never :latest."""
+    if "@sha256:" in image:
+        return True
+    if ":" not in image.rsplit("/", 1)[-1]:
+        return False
+    tag = image.rsplit(":", 1)[1]
+    return bool(tag) and tag != "latest"
+
+
+# ---------------------------------------------------------------------------
+# Command helper
+# ---------------------------------------------------------------------------
+
+
+def run(argv, cwd=None, dry_run=False, check=True):
+    printable = " ".join(argv)
+    if dry_run:
+        print("would run: %s%s" % (printable, "" if cwd is None else "   (in %s)" % cwd))
+        return subprocess.CompletedProcess(argv, 0, "", "")
+    result = subprocess.run(argv, cwd=cwd)
+    if check and result.returncode != 0:
+        raise LabError("command failed (%d): %s" % (result.returncode, printable))
+    return result
+
+
+def have(binary):
+    return shutil.which(binary) is not None
+
+
+def sudo_clab(argv, cwd, dry_run=False):
+    """Containerlab needs root for network and namespace work. -n never prompts."""
+    return run(["sudo", "-n", "containerlab"] + argv, cwd=cwd, dry_run=dry_run)
+
+
+# ---------------------------------------------------------------------------
+# list
+# ---------------------------------------------------------------------------
+
+
+def cmd_list(labs, args):
+    rows = []
+    for name in sorted(labs):
+        lab = labs[name]
+        facts = {}
+        nodes = "-"
+        if lab["driver"] == "containerlab":
+            topology = lab_path(lab, lab["topology"])
+            if topology.exists():
+                facts = topology_facts(topology)
+                nodes = str(len(facts["nodes"]))
+        if args.markdown:
+            rows.append(
+                "| `%s/` | %s | %s | `%s` | %s |"
+                % (lab["dir"], lab["summary"], nodes, lab["mgmt_subnet"] or "-",
+                   "automation only" if lab["automation_only"] else lab["driver"])
+            )
+        else:
+            rows.append(
+                "%-24s %-13s %5s  %-18s %s"
+                % (name, lab["driver"], nodes, lab["mgmt_subnet"] or "-",
+                   lab["summary"][:60])
+            )
+
+    if args.markdown:
+        print("| Lab | Purpose | Nodes | Management subnet | Lifecycle |")
+        print("|---|---|---|---|---|")
+    else:
+        print("%-24s %-13s %5s  %-18s %s" % ("LAB", "DRIVER", "NODES", "MGMT SUBNET", "PURPOSE"))
+    for row in rows:
+        print(row)
+    return EXIT_OK
+
+
+# ---------------------------------------------------------------------------
+# check
+# ---------------------------------------------------------------------------
+
+
+def subnet_problems(labs):
+    """Management subnets must be valid CIDR and must not overlap."""
+    problems = []
+    networks = {}
+    for name, lab in labs.items():
+        subnet = lab["mgmt_subnet"]
+        if not subnet:
+            continue
+        try:
+            networks[name] = ipaddress.ip_network(subnet, strict=False)
+        except ValueError:
+            problems.append("%s: mgmt_subnet is not valid CIDR: %r" % (name, subnet))
+    names = sorted(networks)
+    for index, first in enumerate(names):
+        for second in names[index + 1:]:
+            if networks[first].overlaps(networks[second]):
+                problems.append(
+                    "mgmt_subnet overlap: %s (%s) and %s (%s)"
+                    % (first, networks[first], second, networks[second])
+                )
+    return problems
+
+
+def cmd_check(labs, args):
+    problems = []
+    warnings = []
+    checked = 0
+
+    def fail(message):
+        problems.append(message)
+
+    # Two Docker networks with overlapping ranges on one host is the failure
+    # this registry exists to prevent.
+    problems.extend(subnet_problems(labs))
+
+    for name in sorted(labs):
+        lab = labs[name]
+        checked += 1
+        lab_dir = ROOT / lab["dir"]
+
+        if not lab_dir.is_dir():
+            fail("%s: directory missing: %s" % (name, lab["dir"]))
+            continue
+
+        topology = lab_path(lab, lab["topology"])
+        if not topology.exists():
+            fail("%s: topology missing: %s" % (name, topology.relative_to(ROOT)))
+            continue
+
+        for script in lab["verify"]:
+            if not lab_path(lab, script).exists():
+                fail("%s: verify script missing: %s" % (name, script))
+
+        for phase, hooks in sorted(lab["hooks"].items()):
+            if phase not in ("pre_deploy", "post_deploy", "pre_destroy", "post_destroy"):
+                fail("%s: unknown hook phase %r" % (name, phase))
+            for hook in hooks:
+                if not hook:
+                    fail("%s: empty %s hook" % (name, phase))
+                    continue
+                if not lab_path(lab, hook[0]).exists():
+                    fail("%s: %s hook script missing: %s" % (name, phase, hook[0]))
+
+        for build in lab["docker_builds"]:
+            if not lab_path(lab, build["context"]).is_dir():
+                fail("%s: build context missing: %s" % (name, build["context"]))
+
+        for image in lab["images"] + lab["external_images"] + [
+            b["image"] for b in lab["docker_builds"]
+        ]:
+            if not is_pinned(image):
+                fail("%s: image is not pinned by tag or digest: %s" % (name, image))
+
+        if lab["driver"] != "containerlab":
+            if lab["automation_only"] and not lab["automation_template"]:
+                fail("%s: automation_only without automation_template" % name)
+            continue
+
+        facts = topology_facts(topology)
+
+        if facts["name"] != name:
+            fail(
+                "%s: topology declares name %r; the clab- prefix and the manifest must agree"
+                % (name, facts["name"])
+            )
+
+        if facts["mgmt_subnet"] != lab["mgmt_subnet"]:
+            fail(
+                "%s: mgmt_subnet is %r in labs.toml and %r in %s"
+                % (name, lab["mgmt_subnet"], facts["mgmt_subnet"], lab["topology"])
+            )
+
+        declared = set(lab["images"]) | {b["image"] for b in lab["docker_builds"]}
+        for node, node_facts in sorted(facts["nodes"].items()):
+            image = node_facts["image"]
+            if not image:
+                warnings.append("%s: node %s declares no image" % (name, node))
+                continue
+            if image not in declared:
+                fail(
+                    "%s: node %s uses image %s, which labs.toml does not declare"
+                    % (name, node, image)
+                )
+
+        for build in lab["docker_builds"]:
+            if build["image"] not in {n["image"] for n in facts["nodes"].values()}:
+                fail(
+                    "%s: build image %s is not used by the topology"
+                    % (name, build["image"])
+                )
+
+    # Every topology in the repository must be registered.
+    for topology in sorted(ROOT.glob("*/*.clab.yml")):
+        lab_dir = topology.parent.name
+        if not any(lab["dir"] == lab_dir for lab in labs.values()):
+            fail("%s: topology is not registered in labs.toml" % topology.relative_to(ROOT))
+
+    if args.with_validator:
+        validator = ROOT / "validate-repository.sh"
+        print("running %s" % validator.name)
+        result = subprocess.run(["bash", str(validator)], cwd=ROOT)
+        if result.returncode != 0:
+            fail("validate-repository.sh exited %d" % result.returncode)
+
+    for warning in warnings:
+        print("WARN: %s" % warning)
+    for problem in problems:
+        print("FAIL: %s" % problem)
+    if problems:
+        print("\n%d lab(s) checked, %d problem(s)" % (checked, len(problems)))
+        return EXIT_FAIL
+    print("%d lab(s) checked, no problems" % checked)
+    return EXIT_OK
+
+
+# ---------------------------------------------------------------------------
+# doctor
+# ---------------------------------------------------------------------------
+
+
+def docker_networks():
+    """Name and subnets of every Docker network, or an empty list."""
+    listed = subprocess.run(
+        ["docker", "network", "ls", "-q"], text=True, capture_output=True
+    )
+    if listed.returncode != 0:
+        return []
+    out = []
+    for net_id in listed.stdout.split():
+        detail = subprocess.run(
+            ["docker", "network", "inspect", net_id, "--format",
+             "{{.Name}} {{range .IPAM.Config}}{{.Subnet}} {{end}}"],
+            text=True, capture_output=True,
+        )
+        if detail.returncode == 0 and detail.stdout.strip():
+            parts = detail.stdout.split()
+            if len(parts) >= 2:
+                out.append((parts[0], parts[1:]))
+    return out
+
+
+def cmd_doctor(labs, args):
+    blocking = 0
+
+    print("repository: %s" % ROOT)
+    print("python:     %s" % sys.version.split()[0])
+    print("manifest:   %d labs" % len(labs))
+
+    docker = have("docker")
+    print("docker:     %s" % ("found" if docker else "MISSING"))
+    if docker:
+        info = subprocess.run(["docker", "info"], text=True, capture_output=True)
+        if info.returncode != 0:
+            print("docker daemon: not reachable by this user")
+            blocking += 1
+        else:
+            print("docker daemon: reachable")
+    else:
+        blocking += 1
+
+    clab = have("containerlab")
+    print("containerlab: %s" % ("found" if clab else "MISSING"))
+    if not clab:
+        blocking += 1
+
+    sudo = subprocess.run(["sudo", "-n", "true"], capture_output=True)
+    print("passwordless sudo: %s" % ("yes" if sudo.returncode == 0 else "no"))
+    if sudo.returncode != 0:
+        blocking += 1
+
+    meminfo = Path("/proc/meminfo").read_text()
+    available_mb = 0
+    for line in meminfo.splitlines():
+        if line.startswith("MemAvailable:"):
+            available_mb = int(line.split()[1]) // 1024
+    usage = shutil.disk_usage(str(ROOT))
+    print("memory available: %d MiB" % available_mb)
+    print("disk free:        %d MiB" % (usage.free // (1024 * 1024)))
+
+    for name in sorted(labs):
+        need = labs[name]["min_free_memory_mb"]
+        if need and available_mb < need:
+            print(
+                "WARN: %s declares min_free_memory_mb=%d; %d MiB is available"
+                % (name, need, available_mb)
+            )
+
+    if docker:
+        networks = docker_networks()
+        print("docker networks: %d" % len(networks))
+        subnets = {subnet: net for net, ranges in networks for subnet in ranges}
+        for name in sorted(labs):
+            subnet = labs[name]["mgmt_subnet"]
+            if subnet and subnet in subnets:
+                print(
+                    "WARN: %s wants %s; docker network %s already uses it"
+                    % (name, subnet, subnets[subnet])
+                )
+
+        print("\nrunning labs:")
+        for name in sorted(labs):
+            lab = labs[name]
+            if lab["driver"] != "containerlab":
+                continue
+            listed = subprocess.run(
+                ["docker", "ps", "-aq", "--filter", "name=clab-%s-" % name],
+                text=True, capture_output=True,
+            )
+            count = len([line for line in listed.stdout.split() if line])
+            state = "%d container(s)" % count if count else "not deployed"
+            print("  %-24s %s" % (name, state))
+
+    if blocking:
+        print("\n%d blocking problem(s) for deploy" % blocking)
+        return EXIT_FAIL
+    print("\nhost looks ready for a deploy")
+    return EXIT_OK
+
+
+# ---------------------------------------------------------------------------
+# prepare
+# ---------------------------------------------------------------------------
+
+
+def prepare(lab, dry_run=False):
+    lab_dir = ROOT / lab["dir"]
+    topology = lab_path(lab, lab["topology"])
+    facts = topology_facts(topology)
+
+    dirs = runtime_dirs(facts)
+    if dirs:
+        for name in dirs:
+            path = lab_dir / "runtime" / name
+            if path.exists():
+                continue
+            print("create  %s" % path.relative_to(ROOT))
+            if not dry_run:
+                path.mkdir(parents=True, exist_ok=True)
+
+        owner = lab["runtime_owner"]
+        if owner:
+            # The FRR daemons run unprivileged inside the image, so the bind
+            # target must be owned by the uid:gid they use.
+            targets = [str(lab_dir / "runtime" / name) for name in dirs]
+            print("chown   %s runtime/ (%d dirs)" % (owner, len(targets)))
+            run(["sudo", "-n", "chown", owner] + targets, dry_run=dry_run)
+
+    for build in lab["docker_builds"]:
+        print("build   %s from %s/" % (build["image"], build["context"]))
+        run(["docker", "build", "-q", "-t", build["image"], build["context"]],
+            cwd=lab_dir, dry_run=dry_run)
+
+    external = set(lab["external_images"])
+    for image in lab["images"]:
+        if image in external:
+            if dry_run:
+                print("check   %s must exist locally" % image)
+                continue
+            present = subprocess.run(
+                ["docker", "image", "inspect", image], capture_output=True
+            )
+            if present.returncode != 0:
+                raise LabError(
+                    "%s: image %s is not present locally and this lab does not pull it"
+                    % (lab["name"], image)
+                )
+            continue
+        print("pull    %s" % image)
+        run(["docker", "pull", image], cwd=lab_dir, dry_run=dry_run)
+
+
+def cmd_prepare(labs, args):
+    lab = require_containerlab(labs, args.lab)
+    prepare(lab, dry_run=args.dry_run)
+    return EXIT_OK
+
+
+# ---------------------------------------------------------------------------
+# hooks, up, down, verify, status
+# ---------------------------------------------------------------------------
+
+
+def run_hooks(lab, phase, dry_run=False, tolerant=False):
+    for hook in lab["hooks"].get(phase, []):
+        script = lab_path(lab, hook[0])
+        argv = ["bash", str(script)] + list(hook[1:])
+        print("%s: %s" % (phase, hook[0]))
+        result = run(argv, cwd=ROOT / lab["dir"], dry_run=dry_run, check=False)
+        if result.returncode != 0:
+            message = "%s hook failed (%d): %s" % (phase, result.returncode, hook[0])
+            if tolerant:
+                print("WARN: %s" % message)
+                continue
+            raise LabError(message)
+
+
+def require_containerlab(labs, name):
+    lab = lab_by_name(labs, name)
+    if lab["driver"] != "containerlab":
+        raise LabError(
+            "%s is managed by %s, not Containerlab. See %s/README.md"
+            % (name, lab["driver"], lab["dir"])
+        )
+    if lab["automation_only"]:
+        raise LabError(
+            "%s must run through the fixed automation template %r: it %s"
+            % (name, lab["automation_template"] or "no template declared",
+               lab["automation_only"])
+        )
+    return lab
+
+
+def preflight(labs, lab, skip):
+    if skip:
+        print("preflight skipped")
+        return
+    result = cmd_doctor(labs, argparse.Namespace())
+    if result != EXIT_OK:
+        raise LabError(
+            "preflight failed for %s; fix the host or pass --no-preflight" % lab["name"]
+        )
+
+
+def cmd_up(labs, args):
+    lab = require_containerlab(labs, args.lab)
+    topology = lab_path(lab, lab["topology"])
+    if not topology.exists():
+        raise LabError("%s: topology missing: %s" % (lab["name"], topology))
+
+    preflight(labs, lab, args.no_preflight)
+
+    print("\ndeploying %s (%s)" % (lab["name"], lab["topology"]))
+    run_hooks(lab, "pre_deploy", dry_run=args.dry_run)
+    prepare(lab, dry_run=args.dry_run)
+    sudo_clab(["deploy", "-t", lab["topology"]], cwd=ROOT / lab["dir"], dry_run=args.dry_run)
+    run_hooks(lab, "post_deploy", dry_run=args.dry_run)
+
+    print("\nnext: ./labctl verify %s" % lab["name"])
+    return EXIT_OK
+
+
+def cmd_down(labs, args):
+    lab = require_containerlab(labs, args.lab)
+    topology = lab_path(lab, lab["topology"])
+    if not topology.exists():
+        raise LabError("%s: topology missing: %s" % (lab["name"], topology))
+
+    confirmed(lab)
+
+    print("\ndestroying %s (%s)" % (lab["name"], lab["topology"]))
+    run_hooks(lab, "pre_destroy", dry_run=args.dry_run, tolerant=True)
+    sudo_clab(
+        ["destroy", "-t", lab["topology"], "--cleanup"],
+        cwd=ROOT / lab["dir"],
+        dry_run=args.dry_run,
+    )
+    run_hooks(lab, "post_destroy", dry_run=args.dry_run, tolerant=True)
+
+    leftover = ROOT / lab["dir"] / "runtime"
+    if leftover.exists():
+        print("\nnote: %s still holds FRR socket directories; the topology owns them" % leftover.relative_to(ROOT))
+    return EXIT_OK
+
+
+def confirmed(lab):
+    """State exactly what will be removed. A typo must not remove another lab."""
+    print("lab:      %s" % lab["name"])
+    print("topology: %s/%s" % (lab["dir"], lab["topology"]))
+    print("scope:    containers named clab-%s-* only" % lab["name"])
+
+
+def cmd_verify(labs, args):
+    lab = lab_by_name(labs, args.lab)
+    if lab["driver"] != "containerlab":
+        raise LabError("%s has no containerlab verification path" % lab["name"])
+    if not lab["verify"]:
+        raise LabError("%s declares no verify scripts" % lab["name"])
+
+    failures = 0
+    for script in lab["verify"]:
+        print("\n== %s ==" % script)
+        result = run(["bash", str(lab_path(lab, script))], cwd=ROOT / lab["dir"], check=False)
+        if result.returncode != 0:
+            failures += 1
+    if failures:
+        print("\n%d verification script(s) failed" % failures)
+        return EXIT_FAIL
+    print("\nall verification scripts passed")
+    return EXIT_OK
+
+
+def cmd_status(labs, args):
+    if not have("docker"):
+        raise LabError("docker is not on PATH, so no lab state can be read")
+    names = [args.lab] if args.lab else sorted(labs)
+    for name in names:
+        lab = lab_by_name(labs, name)
+        if lab["driver"] != "containerlab":
+            print("%-24s %s" % (name, lab["driver"]))
+            continue
+        listed = subprocess.run(
+            ["docker", "ps", "-a", "--filter", "name=clab-%s-" % name,
+             "--format", "table {{.Names}}\t{{.Image}}\t{{.Status}}"],
+            text=True, capture_output=True,
+        )
+        if listed.returncode != 0:
+            raise LabError("docker ps failed: %s" % listed.stderr.strip())
+        print("== %s ==" % name)
+        rows = [line for line in listed.stdout.splitlines() if line.strip()]
+        if len(rows) <= 1:
+            print("not deployed")
+        else:
+            print(listed.stdout.rstrip())
+        print()
+    return EXIT_OK
+
+
+# ---------------------------------------------------------------------------
+# main
+# ---------------------------------------------------------------------------
+
+
+def build_parser():
+    parser = argparse.ArgumentParser(
+        prog="labctl",
+        description="Lifecycle driver for every lab in this repository.",
+        epilog="Every changing command names one lab. There is no --all.",
+    )
+    parser.add_argument("--version", action="version", version="labctl 1.0.0")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    listing = sub.add_parser("list", help="show every lab")
+    listing.add_argument("--markdown", action="store_true", help="emit a markdown table")
+    listing.set_defaults(func=cmd_list)
+
+    checking = sub.add_parser("check", help="compare the manifest with the topology sources")
+    checking.add_argument("--with-validator", action="store_true",
+                          help="also run validate-repository.sh")
+    checking.set_defaults(func=cmd_check)
+
+    doctor = sub.add_parser("doctor", help="inspect the host before a deploy")
+    doctor.set_defaults(func=cmd_doctor)
+
+    for name, func, text in (
+        ("prepare", cmd_prepare, "create runtime directories and build local images"),
+        ("up", cmd_up, "deploy one lab"),
+        ("verify", cmd_verify, "run the lab verification scripts"),
+        ("down", cmd_down, "destroy one lab"),
+    ):
+        command = sub.add_parser(name, help=text)
+        command.add_argument("lab")
+        if name in ("prepare", "up"):
+            command.add_argument("--dry-run", action="store_true")
+        if name == "up":
+            command.add_argument("--no-preflight", action="store_true",
+                                 help="skip the host checks")
+        if name == "down":
+            command.add_argument("--dry-run", action="store_true")
+        command.set_defaults(func=func)
+
+    status = sub.add_parser("status", help="show running containers")
+    status.add_argument("lab", nargs="?")
+    status.set_defaults(func=cmd_status)
+    return parser
+
+
+def main(argv):
+    args = build_parser().parse_args(argv)
+    try:
+        labs = load_manifest()
+        return args.func(labs, args)
+    except LabError as error:
+        print("labctl: %s" % error, file=sys.stderr)
+        return EXIT_USAGE
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

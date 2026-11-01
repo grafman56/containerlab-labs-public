@@ -1,0 +1,5 @@
+$TTL 300
+@       IN SOA  ddi.campus.edu. admin.campus.edu. ( 1 600 300 604800 300 )
+        IN NS   ddi.campus.edu.
+ddi     IN A    10.20.20.50
+nac     IN A    10.20.20.20

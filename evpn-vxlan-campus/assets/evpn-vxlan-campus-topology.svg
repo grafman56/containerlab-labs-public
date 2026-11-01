@@ -1,0 +1,205 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1940" height="1200" viewBox="0 0 1940 1200" role="img" aria-labelledby="title desc">
+  <title id="title">Two-site campus network: an EVPN-VXLAN fabric in OSPF area 0 with non-fabric buildings in their own areas</title>
+  <desc id="desc">Thirty-five-node topology. Each site has two spines, two access leaves, and two border leaves. Each border leaf connects to both local spines and the site's firewall. Eight VTEPs form a full iBGP EVPN mesh in AS 65000 over the OSPFv2 area 0 underlay. Campus A also has an identity edge, wireless AP and clients, ClearPass and eduroam RADIUS stand-ins, a remote IdP, and BlueCat DDI stand-in.</desc>
+  <defs>
+    <style>
+      .title { fill: #f8fafc; font: 700 29px system-ui, sans-serif; }
+      .caption { fill: #94a3b8; font: 15px system-ui, sans-serif; }
+      .campus { fill: #94a3b8; font: 700 15px system-ui, sans-serif; letter-spacing: 1.5px; }
+      .area { fill: #a78bfa; font: 700 14px system-ui, sans-serif; letter-spacing: 1.2px; text-anchor: middle; }
+      .areasub { fill: #c4b5fd; font: 11px system-ui, sans-serif; text-anchor: middle; }
+      .arealbl { fill: #818cf8; font: 11px system-ui, sans-serif; }
+      .label { fill: #f8fafc; font: 700 16px system-ui, sans-serif; text-anchor: middle; }
+      .sub { fill: #cbd5e1; font: 11px system-ui, sans-serif; text-anchor: middle; }
+      .legend { fill: #cbd5e1; font: 13px system-ui, sans-serif; }
+      .linklbl { fill: #fbbf24; font: 12px system-ui, sans-serif; text-anchor: middle; }
+      .line { stroke: #64748b; stroke-width: 2.5; fill: none; }
+      .area0 { stroke: #64748b; stroke-width: 2.5; fill: none; }
+      .areax { stroke: #a78bfa; stroke-width: 2.5; fill: none; }
+      .dci { stroke: #fbbf24; stroke-width: 3; fill: none; stroke-dasharray: 10 6; }
+      .wan { stroke: #f472b6; stroke-width: 3; fill: none; }
+    </style>
+  </defs>
+  <rect width="1940" height="1200" rx="18" fill="#0f172a"/>
+  <text x="48" y="54" class="title">Two-Site Campus: EVPN-VXLAN Fabric and Non-Fabric Buildings</text>
+  <text x="48" y="82" class="caption">Area 0 backbone carries the fabric underlay &#183; one AS 65000 full iBGP EVPN mesh &#183; one point-to-point site link &#183; a firewall and ISP at each site &#183; buildings in their own OSPF areas</text>
+  <rect x="320" y="235" width="360" height="540" rx="14" fill="#13203a" stroke="#475569" stroke-width="2" stroke-dasharray="7 6"/>
+  <text x="336" y="262" class="campus">SITE A &#183; <tspan fill="#60a5fa">AREA 0</tspan></text>
+  <rect x="1120" y="235" width="360" height="540" rx="14" fill="#13203a" stroke="#475569" stroke-width="2" stroke-dasharray="7 6"/>
+  <text x="1136" y="262" class="campus">SITE B &#183; <tspan fill="#60a5fa">AREA 0</tspan></text>
+  <rect x="90" y="300" width="160" height="440" rx="14" fill="#1a1630" stroke="#a78bfa" stroke-width="2" stroke-dasharray="7 6"/>
+  <text x="170" y="326" class="area">BLDG A1</text>
+  <text x="170" y="730" class="areasub">AREA 1 &#183; totally stubby</text>
+  <rect x="1550" y="300" width="160" height="440" rx="14" fill="#1a1630" stroke="#a78bfa" stroke-width="2" stroke-dasharray="7 6"/>
+  <text x="1630" y="326" class="area">BLDG B1</text>
+  <text x="1630" y="730" class="areasub">AREA 2 &#183; NSSA</text>
+  <rect x="340" y="127" width="130" height="46" rx="8" fill="#3d1f1f" stroke="#fb7185" stroke-width="2"/>
+  <text x="405" y="149" class="label">fw-a</text>
+  <text x="405" y="165" class="sub">ASBR &#183; AS 65301</text>
+  <rect x="530" y="127" width="130" height="46" rx="8" fill="#3f1526" stroke="#f472b6" stroke-width="2"/>
+  <text x="595" y="149" class="label">inet-a</text>
+  <text x="595" y="165" class="sub">AS 65100 &#183; 203.0.113.1</text>
+  <rect x="1140" y="127" width="130" height="46" rx="8" fill="#3d1f1f" stroke="#fb7185" stroke-width="2"/>
+  <text x="1205" y="149" class="label">fw-b</text>
+  <text x="1205" y="165" class="sub">ASBR &#183; AS 65302</text>
+  <rect x="1330" y="127" width="130" height="46" rx="8" fill="#3f1526" stroke="#f472b6" stroke-width="2"/>
+  <text x="1395" y="149" class="label">inet-b</text>
+  <text x="1395" y="165" class="sub">AS 65200 &#183; 203.0.113.2</text>
+  <rect x="335" y="267" width="130" height="46" rx="8" fill="#3a2a0c" stroke="#fbbf24" stroke-width="2"/>
+  <polygon points="348,274 354,280 348,286 342,280" fill="#fbbf24"/>
+  <text x="400" y="289" class="label">bdr-a</text>
+  <text x="400" y="305" class="sub">10.255.1.1 primary</text>
+  <rect x="535" y="267" width="130" height="46" rx="8" fill="#3a2a0c" stroke="#fbbf24" stroke-width="2"/>
+  <polygon points="548,274 554,280 548,286 542,280" fill="#fbbf24"/>
+  <text x="600" y="289" class="label">bdr-a2</text>
+  <text x="600" y="305" class="sub">10.255.1.3 secondary</text>
+  <rect x="1135" y="267" width="130" height="46" rx="8" fill="#3a2a0c" stroke="#fbbf24" stroke-width="2"/>
+  <polygon points="1148,274 1154,280 1148,286 1142,280" fill="#fbbf24"/>
+  <text x="1200" y="289" class="label">bdr-b</text>
+  <text x="1200" y="305" class="sub">10.255.1.2 primary</text>
+  <rect x="1335" y="267" width="130" height="46" rx="8" fill="#3a2a0c" stroke="#fbbf24" stroke-width="2"/>
+  <polygon points="1348,274 1354,280 1348,286 1342,280" fill="#fbbf24"/>
+  <text x="1400" y="289" class="label">bdr-b2</text>
+  <text x="1400" y="305" class="sub">10.255.1.4 secondary</text>
+  <rect x="335" y="407" width="130" height="46" rx="8" fill="#172554" stroke="#60a5fa" stroke-width="2"/>
+  <text x="400" y="429" class="label">spine1a</text>
+  <text x="400" y="445" class="sub">10.255.255.1</text>
+  <rect x="535" y="407" width="130" height="46" rx="8" fill="#172554" stroke="#60a5fa" stroke-width="2"/>
+  <text x="600" y="429" class="label">spine2a</text>
+  <text x="600" y="445" class="sub">10.255.255.2</text>
+  <rect x="1135" y="407" width="130" height="46" rx="8" fill="#172554" stroke="#60a5fa" stroke-width="2"/>
+  <text x="1200" y="429" class="label">spine1b</text>
+  <text x="1200" y="445" class="sub">10.255.255.3</text>
+  <rect x="1335" y="407" width="130" height="46" rx="8" fill="#172554" stroke="#60a5fa" stroke-width="2"/>
+  <text x="1400" y="429" class="label">spine2b</text>
+  <text x="1400" y="445" class="sub">10.255.255.4</text>
+  <rect x="335" y="547" width="130" height="46" rx="8" fill="#113329" stroke="#34d399" stroke-width="2"/>
+  <polygon points="348,554 354,560 348,566 342,560" fill="#fbbf24"/>
+  <text x="400" y="569" class="label">leaf1a</text>
+  <text x="400" y="585" class="sub">VTEP 10.255.0.1</text>
+  <rect x="535" y="547" width="130" height="46" rx="8" fill="#113329" stroke="#34d399" stroke-width="2"/>
+  <polygon points="548,554 554,560 548,566 542,560" fill="#fbbf24"/>
+  <text x="600" y="569" class="label">leaf2a</text>
+  <text x="600" y="585" class="sub">VTEP 10.255.0.2</text>
+  <rect x="1135" y="547" width="130" height="46" rx="8" fill="#113329" stroke="#34d399" stroke-width="2"/>
+  <polygon points="1148,554 1154,560 1148,566 1142,560" fill="#fbbf24"/>
+  <text x="1200" y="569" class="label">leaf1b</text>
+  <text x="1200" y="585" class="sub">VTEP 10.255.0.3</text>
+  <rect x="1335" y="547" width="130" height="46" rx="8" fill="#113329" stroke="#34d399" stroke-width="2"/>
+  <polygon points="1348,554 1354,560 1348,566 1342,560" fill="#fbbf24"/>
+  <text x="1400" y="569" class="label">leaf2b</text>
+  <text x="1400" y="585" class="sub">VTEP 10.255.0.4</text>
+  <rect x="335" y="687" width="130" height="46" rx="8" fill="#1e293b" stroke="#94a3b8" stroke-width="2"/>
+  <text x="400" y="709" class="label">host1</text>
+  <text x="400" y="725" class="sub">10.10.10.11 &#183; VNI 1010</text>
+  <rect x="535" y="687" width="130" height="46" rx="8" fill="#1e293b" stroke="#94a3b8" stroke-width="2"/>
+  <text x="600" y="709" class="label">host2</text>
+  <text x="600" y="725" class="sub">10.20.20.12 &#183; VNI 1020</text>
+  <rect x="1135" y="687" width="130" height="46" rx="8" fill="#1e293b" stroke="#94a3b8" stroke-width="2"/>
+  <text x="1200" y="709" class="label">host3</text>
+  <text x="1200" y="725" class="sub">10.10.10.13 &#183; VNI 1010</text>
+  <rect x="1335" y="687" width="130" height="46" rx="8" fill="#1e293b" stroke="#94a3b8" stroke-width="2"/>
+  <text x="1400" y="709" class="label">host4</text>
+  <text x="1400" y="725" class="sub">10.20.20.14 &#183; VNI 1020</text>
+  <rect x="105" y="327" width="130" height="46" rx="8" fill="#2a1b47" stroke="#a78bfa" stroke-width="2"/>
+  <text x="170" y="349" class="label">dist-a1</text>
+  <text x="170" y="365" class="sub">ABR &#183; 10.255.2.1</text>
+  <rect x="105" y="487" width="130" height="46" rx="8" fill="#1c2b45" stroke="#818cf8" stroke-width="2"/>
+  <text x="170" y="509" class="label">acc-a1</text>
+  <text x="170" y="525" class="sub">10.101.10.0/24</text>
+  <rect x="105" y="647" width="130" height="46" rx="8" fill="#1e293b" stroke="#94a3b8" stroke-width="2"/>
+  <text x="170" y="669" class="label">user-a1</text>
+  <text x="170" y="685" class="sub">10.101.10.50</text>
+  <rect x="1565" y="327" width="130" height="46" rx="8" fill="#2a1b47" stroke="#a78bfa" stroke-width="2"/>
+  <text x="1630" y="349" class="label">dist-b1</text>
+  <text x="1630" y="365" class="sub">ABR &#183; 10.255.3.1</text>
+  <rect x="1565" y="487" width="130" height="46" rx="8" fill="#1c2b45" stroke="#818cf8" stroke-width="2"/>
+  <text x="1630" y="509" class="label">acc-b1</text>
+  <text x="1630" y="525" class="sub">ASBR &#183; 10.102.10.0/24</text>
+  <rect x="1565" y="647" width="130" height="46" rx="8" fill="#1e293b" stroke="#94a3b8" stroke-width="2"/>
+  <text x="1630" y="669" class="label">user-b1</text>
+  <text x="1630" y="685" class="sub">10.102.10.50</text>
+  <rect x="1745" y="487" width="130" height="46" rx="8" fill="#3f1526" stroke="#f472b6" stroke-width="2"/>
+  <text x="1810" y="509" class="label">inet-res</text>
+  <text x="1810" y="525" class="sub">AS 65400 &#183; 203.0.113.3</text>
+  <line class="line" x1="400" y1="453" x2="400" y2="547"/>
+  <line class="line" x1="400" y1="453" x2="600" y2="547"/>
+  <line class="line" x1="400" y1="313" x2="400" y2="407"/>
+  <line class="line" x1="400" y1="313" x2="600" y2="407"/>
+  <line class="line" x1="600" y1="313" x2="400" y2="407"/>
+  <line class="line" x1="600" y1="313" x2="600" y2="407"/>
+  <line class="area0" x1="170" y1="373" x2="400" y2="407"/>
+  <line class="line" x1="600" y1="453" x2="400" y2="547"/>
+  <line class="line" x1="600" y1="453" x2="600" y2="547"/>
+  <line class="area0" x1="170" y1="373" x2="600" y2="407"/>
+  <line class="line" x1="400" y1="593" x2="400" y2="687"/>
+  <line class="line" x1="600" y1="593" x2="600" y2="687"/>
+  <line class="wan" x1="405" y1="173" x2="400" y2="267"/>
+  <line class="wan" x1="405" y1="173" x2="600" y2="267"/>
+  <line class="wan" x1="470" y1="150" x2="530" y2="150"/>
+  <line class="area0" x1="405" y1="173" x2="400" y2="407"/>
+  <line class="areax" x1="170" y1="373" x2="170" y2="487"/>
+  <line class="areax" x1="170" y1="533" x2="170" y2="647"/>
+  <line class="line" x1="1200" y1="453" x2="1200" y2="547"/>
+  <line class="line" x1="1200" y1="453" x2="1400" y2="547"/>
+  <line class="line" x1="1200" y1="313" x2="1200" y2="407"/>
+  <line class="line" x1="1200" y1="313" x2="1400" y2="407"/>
+  <line class="line" x1="1400" y1="313" x2="1200" y2="407"/>
+  <line class="line" x1="1400" y1="313" x2="1400" y2="407"/>
+  <line class="area0" x1="1630" y1="373" x2="1200" y2="407"/>
+  <line class="line" x1="1400" y1="453" x2="1200" y2="547"/>
+  <line class="line" x1="1400" y1="453" x2="1400" y2="547"/>
+  <line class="area0" x1="1630" y1="373" x2="1400" y2="407"/>
+  <line class="line" x1="1200" y1="593" x2="1200" y2="687"/>
+  <line class="line" x1="1400" y1="593" x2="1400" y2="687"/>
+  <line class="wan" x1="1205" y1="173" x2="1200" y2="267"/>
+  <line class="wan" x1="1205" y1="173" x2="1400" y2="267"/>
+  <line class="wan" x1="1270" y1="150" x2="1330" y2="150"/>
+  <line class="area0" x1="1205" y1="173" x2="1200" y2="407"/>
+  <line class="areax" x1="1630" y1="373" x2="1630" y2="487"/>
+  <line class="areax" x1="1630" y1="533" x2="1630" y2="647"/>
+  <text x="500" y="143" class="linklbl">eBGP</text>
+  <text x="392" y="213" class="linklbl" text-anchor="start">eBGP &#183; default</text>
+  <text x="308" y="340" class="arealbl" text-anchor="end">area 0</text>
+  <text x="1300" y="143" class="linklbl">eBGP</text>
+  <text x="1192" y="213" class="linklbl" text-anchor="start">eBGP &#183; default</text>
+  <text x="1108" y="340" class="arealbl" text-anchor="end">area 0</text>
+  <line class="wan" x1="1695" y1="510" x2="1745" y2="510"/>
+  <text x="1760" y="486" class="linklbl">eBGP</text>
+  <line class="dci" x1="665" y1="430" x2="1135" y2="430"/>
+  <text x="900" y="416" class="linklbl">site link &#183; one point-to-point</text>
+  <text x="258" y="374" class="arealbl" text-anchor="start">area 0 uplinks</text>
+  <text x="1542" y="374" class="arealbl" text-anchor="end">area 0 uplinks</text>
+  <text x="48" y="828" class="legend"><tspan fill="#fbbf24">&#9670;</tspan> Eight VTEPs form the EVPN mesh. Spines route OSPF underlay only in this full-mesh example; other designs use spines as EVPN route reflectors.</text>
+  <text x="48" y="852" class="legend">The ABR at each building is the area boundary. Bldg A1 has no provider of its own, so it is totally stubby: 3 LSAs and a single default. Bldg B1 has its own research circuit, which makes acc-b1 an ASBR and rules out a stub area entirely. Its type 7 becomes a type 5 at the ABR, and area 1 never sees it.</text>
+  <line class="line" x1="48" y1="898" x2="88" y2="898"/>
+  <text x="98" y="903" class="legend">OSPF area 0 underlay</text>
+  <line class="dci" x1="300" y1="898" x2="340" y2="898"/>
+  <text x="350" y="903" class="legend">site-to-site link</text>
+  <line class="wan" x1="560" y1="898" x2="600" y2="898"/>
+  <text x="610" y="903" class="legend">eBGP from border leaves to firewall, per tenant VRF</text>
+  <line class="areax" x1="980" y1="898" x2="1020" y2="898"/>
+  <text x="1030" y="903" class="legend">non-fabric building, non-zero area</text>
+  <rect x="48" y="930" width="1844" height="240" rx="14" fill="#13203a" stroke="#475569" stroke-width="2"/>
+  <text x="72" y="963" class="campus">CAMPUS A · WIRELESS AND IDENTITY EDGE · 8 MORE NODES</text>
+  <text x="72" y="985" class="caption">Two leaves per site (four total). The AP and wired edge carry authenticated clients into VLAN 10 or 30; identity services attach to leaf2a.</text>
+  <rect x="72" y="1010" width="150" height="62" rx="8" fill="#1e293b" stroke="#94a3b8" stroke-width="2"/>
+  <text x="147" y="1036" class="label">sta-staff</text><text x="147" y="1057" class="sub">wired + Wi-Fi client</text>
+  <rect x="238" y="1010" width="150" height="62" rx="8" fill="#1e293b" stroke="#94a3b8" stroke-width="2"/>
+  <text x="313" y="1036" class="label">sta-visitor</text><text x="313" y="1057" class="sub">wired + Wi-Fi client</text>
+  <rect x="420" y="1010" width="150" height="62" rx="8" fill="#172554" stroke="#60a5fa" stroke-width="2"/>
+  <text x="495" y="1036" class="label">ap-a1</text><text x="495" y="1057" class="sub">Aruba AP stand-in</text>
+  <rect x="602" y="1010" width="150" height="62" rx="8" fill="#1c2b45" stroke="#818cf8" stroke-width="2"/>
+  <text x="677" y="1036" class="label">edge-a1</text><text x="677" y="1057" class="sub">Aruba CX stand-in</text>
+  <rect x="806" y="1010" width="150" height="62" rx="8" fill="#2a1b47" stroke="#a78bfa" stroke-width="2"/>
+  <text x="881" y="1036" class="label">nac</text><text x="881" y="1057" class="sub">ClearPass stand-in</text>
+  <rect x="972" y="1010" width="150" height="62" rx="8" fill="#2a1b47" stroke="#a78bfa" stroke-width="2"/>
+  <text x="1047" y="1036" class="label">fed</text><text x="1047" y="1057" class="sub">eduroam operator</text>
+  <rect x="1138" y="1010" width="170" height="62" rx="8" fill="#2a1b47" stroke="#a78bfa" stroke-width="2"/>
+  <text x="1223" y="1036" class="label">idp-remote</text><text x="1223" y="1057" class="sub">home institution</text>
+  <rect x="1324" y="1010" width="150" height="62" rx="8" fill="#2a1b47" stroke="#a78bfa" stroke-width="2"/>
+  <text x="1399" y="1036" class="label">ddi</text><text x="1399" y="1057" class="sub">BlueCat stand-in</text>
+  <path d="M222 1041h16M388 1041h32M570 1041h32M752 1041h54" stroke="#34d399" stroke-width="2.5" fill="none"/>
+  <text x="72" y="1112" class="legend">Wireless: stations ⇄ AP ⇄ edge-a1 ⇄ leaf1a · wired clients attach directly to edge-a1 · RADIUS services attach to leaf2a · DDI has a second staff-segment leg on leaf1a.</text>
+  <text x="72" y="1142" class="legend">Node count from the Containerlab file: 27 fabric/building nodes + 8 identity-edge nodes = 35.</text>
+</svg>

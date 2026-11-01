@@ -1,0 +1,265 @@
+name: evpn-vxlan-fabric
+
+mgmt:
+  network: clab-evpn-vxlan-fabric
+  ipv4-subnet: 172.100.111.0/24
+  ipv6-subnet: 3fff:172:100:111::/64
+
+topology:
+  defaults:
+    kind: linux
+
+  nodes:
+    spine1:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/spine1.conf:/etc/frr/frr.conf
+        - runtime/spine1:/var/run/frr
+    spine2:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/spine2.conf:/etc/frr/frr.conf
+        - runtime/spine2:/var/run/frr
+    spine3:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/spine3.conf:/etc/frr/frr.conf
+        - runtime/spine3:/var/run/frr
+    spine4:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/spine4.conf:/etc/frr/frr.conf
+        - runtime/spine4:/var/run/frr
+    leaf1:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/leaf1.conf:/etc/frr/frr.conf
+        - scripts/setup-leaf1.sh:/setup-leaf.sh:ro
+        - runtime/leaf1:/var/run/frr
+      exec:
+        - bash /setup-leaf.sh
+    leaf2:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/leaf2.conf:/etc/frr/frr.conf
+        - scripts/setup-leaf2.sh:/setup-leaf.sh:ro
+        - runtime/leaf2:/var/run/frr
+      exec:
+        - bash /setup-leaf.sh
+    leaf3:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/leaf3.conf:/etc/frr/frr.conf
+        - scripts/setup-leaf3.sh:/setup-leaf.sh:ro
+        - runtime/leaf3:/var/run/frr
+      exec:
+        - bash /setup-leaf.sh
+    leaf4:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/leaf4.conf:/etc/frr/frr.conf
+        - scripts/setup-leaf4.sh:/setup-leaf.sh:ro
+        - runtime/leaf4:/var/run/frr
+      exec:
+        - bash /setup-leaf.sh
+    leaf5:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/leaf5.conf:/etc/frr/frr.conf
+        - scripts/setup-leaf5.sh:/setup-leaf.sh:ro
+        - runtime/leaf5:/var/run/frr
+      exec:
+        - bash /setup-leaf.sh
+    leaf6:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/leaf6.conf:/etc/frr/frr.conf
+        - scripts/setup-leaf6.sh:/setup-leaf.sh:ro
+        - runtime/leaf6:/var/run/frr
+      exec:
+        - bash /setup-leaf.sh
+    leaf7:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/leaf7.conf:/etc/frr/frr.conf
+        - scripts/setup-leaf7.sh:/setup-leaf.sh:ro
+        - runtime/leaf7:/var/run/frr
+      exec:
+        - bash /setup-leaf.sh
+    leaf8:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/leaf8.conf:/etc/frr/frr.conf
+        - scripts/setup-leaf8.sh:/setup-leaf.sh:ro
+        - runtime/leaf8:/var/run/frr
+      exec:
+        - bash /setup-leaf.sh
+    leaf9:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/leaf9.conf:/etc/frr/frr.conf
+        - scripts/setup-leaf9.sh:/setup-leaf.sh:ro
+        - runtime/leaf9:/var/run/frr
+      exec:
+        - bash /setup-leaf.sh
+    leaf10:
+      image: quay.io/frrouting/frr:10.7.0
+      binds:
+        - configs/daemons:/etc/frr/daemons
+        - configs/leaf10.conf:/etc/frr/frr.conf
+        - scripts/setup-leaf10.sh:/setup-leaf.sh:ro
+        - runtime/leaf10:/var/run/frr
+      exec:
+        - bash /setup-leaf.sh
+    host1a:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.10.10.11/24 dev eth1
+        - ip route add 10.20.20.0/24 via 10.10.10.1
+    host1b:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.20.20.11/24 dev eth1
+        - ip route add 10.10.10.0/24 via 10.20.20.1
+    host2a:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.10.10.12/24 dev eth1
+        - ip route add 10.20.20.0/24 via 10.10.10.1
+    host2b:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.20.20.12/24 dev eth1
+        - ip route add 10.10.10.0/24 via 10.20.20.1
+    host3a:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.10.10.13/24 dev eth1
+        - ip route add 10.20.20.0/24 via 10.10.10.1
+    host3b:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.20.20.13/24 dev eth1
+        - ip route add 10.10.10.0/24 via 10.20.20.1
+    host4a:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.10.10.14/24 dev eth1
+    host5a:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.10.10.15/24 dev eth1
+    host6a:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.10.10.16/24 dev eth1
+    host7a:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.10.10.17/24 dev eth1
+    host8a:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.10.10.18/24 dev eth1
+    host9a:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.10.10.19/24 dev eth1
+    host10a:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.10.10.20/24 dev eth1
+
+  links:
+    - endpoints: ["spine1:eth1", "leaf1:eth1"]
+    - endpoints: ["spine1:eth2", "leaf2:eth1"]
+    - endpoints: ["spine1:eth3", "leaf3:eth1"]
+    - endpoints: ["spine1:eth4", "leaf4:eth1"]
+    - endpoints: ["spine1:eth5", "leaf5:eth1"]
+    - endpoints: ["spine1:eth6", "leaf6:eth1"]
+    - endpoints: ["spine1:eth7", "leaf7:eth1"]
+    - endpoints: ["spine1:eth8", "leaf8:eth1"]
+    - endpoints: ["spine1:eth9", "leaf9:eth1"]
+    - endpoints: ["spine1:eth10", "leaf10:eth1"]
+    - endpoints: ["spine2:eth1", "leaf1:eth2"]
+    - endpoints: ["spine2:eth2", "leaf2:eth2"]
+    - endpoints: ["spine2:eth3", "leaf3:eth2"]
+    - endpoints: ["spine2:eth4", "leaf4:eth2"]
+    - endpoints: ["spine2:eth5", "leaf5:eth2"]
+    - endpoints: ["spine2:eth6", "leaf6:eth2"]
+    - endpoints: ["spine2:eth7", "leaf7:eth2"]
+    - endpoints: ["spine2:eth8", "leaf8:eth2"]
+    - endpoints: ["spine2:eth9", "leaf9:eth2"]
+    - endpoints: ["spine2:eth10", "leaf10:eth2"]
+    - endpoints: ["spine3:eth1", "leaf1:eth3"]
+    - endpoints: ["spine3:eth2", "leaf2:eth3"]
+    - endpoints: ["spine3:eth3", "leaf3:eth3"]
+    - endpoints: ["spine3:eth4", "leaf4:eth3"]
+    - endpoints: ["spine3:eth5", "leaf5:eth3"]
+    - endpoints: ["spine3:eth6", "leaf6:eth3"]
+    - endpoints: ["spine3:eth7", "leaf7:eth3"]
+    - endpoints: ["spine3:eth8", "leaf8:eth3"]
+    - endpoints: ["spine3:eth9", "leaf9:eth3"]
+    - endpoints: ["spine3:eth10", "leaf10:eth3"]
+    - endpoints: ["spine4:eth1", "leaf1:eth4"]
+    - endpoints: ["spine4:eth2", "leaf2:eth4"]
+    - endpoints: ["spine4:eth3", "leaf3:eth4"]
+    - endpoints: ["spine4:eth4", "leaf4:eth4"]
+    - endpoints: ["spine4:eth5", "leaf5:eth4"]
+    - endpoints: ["spine4:eth6", "leaf6:eth4"]
+    - endpoints: ["spine4:eth7", "leaf7:eth4"]
+    - endpoints: ["spine4:eth8", "leaf8:eth4"]
+    - endpoints: ["spine4:eth9", "leaf9:eth4"]
+    - endpoints: ["spine4:eth10", "leaf10:eth4"]
+    - endpoints: ["leaf1:eth5", "host1a:eth1"]
+    - endpoints: ["leaf1:eth6", "host1b:eth1"]
+    - endpoints: ["leaf2:eth5", "host2a:eth1"]
+    - endpoints: ["leaf2:eth6", "host2b:eth1"]
+    - endpoints: ["leaf3:eth5", "host3a:eth1"]
+    - endpoints: ["leaf3:eth6", "host3b:eth1"]
+    - endpoints: ["leaf4:eth5", "host4a:eth1"]
+    - endpoints: ["leaf5:eth5", "host5a:eth1"]
+    - endpoints: ["leaf6:eth5", "host6a:eth1"]
+    - endpoints: ["leaf7:eth5", "host7a:eth1"]
+    - endpoints: ["leaf8:eth5", "host8a:eth1"]
+    - endpoints: ["leaf9:eth5", "host9a:eth1"]
+    - endpoints: ["leaf10:eth5", "host10a:eth1"]

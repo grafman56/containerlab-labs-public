@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Campus lab entry point.
+#
+# Lifecycle verbs delegate to the repository driver (../labctl) and to
+# labs.toml, which owns the runtime directory preparation, the two local image
+# builds and the radio attach/detach hooks. The commands below stay here
+# because they are specific to this lab and need no lab-name argument.
+set -euo pipefail
+
+here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+repo=$(cd -- "$here/.." && pwd)
+
+usage() {
+  printf 'Usage: %s {check|up|verify|verify-identity|wireless|reconcile|publish|whereis|status|down}\n' "$0" >&2
+}
+
+case "${1:-}" in
+  check|list|doctor)
+    exec "$repo/labctl" "$@"
+    ;;
+  up|down|status|prepare)
+    exec "$repo/labctl" "$@" evpn-vxlan-campus
+    ;;
+  verify)
+    # The identity checks are part of this lab's verification.
+    exec "$repo/labctl" verify evpn-vxlan-campus
+    ;;
+  verify-identity)
+    exec "$here/verify-identity.sh"
+    ;;
+  reconcile)
+    ( cd "$here/reconcile" && exec python3 reconcile.py "${@:2}" )
+    ;;
+  publish)
+    ( cd "$here/reconcile" && exec python3 publish.py "${@:2}" )
+    ;;
+  whereis)
+    ( cd "$here/reconcile" && exec python3 whereis.py "${@:2}" )
+    ;;
+  wireless)
+    exec "$here/identity/wireless-attach.sh"
+    ;;
+  *)
+    usage
+    exit 2
+    ;;
+esac

@@ -1,0 +1,42 @@
+name: modbus-tcp
+
+mgmt:
+  network: clab-modbus-tcp
+  ipv4-subnet: 172.100.120.0/24
+  ipv6-subnet: 3fff:172:100:120::/64
+
+topology:
+  nodes:
+    server:
+      kind: linux
+      image: modbus-lab:3.12.1
+      env:
+        NODE_IP: 192.0.2.1
+      cmd: >-
+        /lab/node-entrypoint.sh pymodbus.simulator --json_file /lab/setup.json
+        --modbus_server modbus --modbus_device device --http_host 0.0.0.0
+        --http_port 8080
+      ports:
+        - 127.0.0.1:8502:8080
+    client:
+      kind: linux
+      image: modbus-lab:3.12.1
+      env:
+        NODE_IP: 192.0.2.2
+      cmd: /lab/node-entrypoint.sh sleep infinity
+    tank:
+      kind: linux
+      image: modbus-lab:3.12.1
+      mgmt-ipv4: 172.100.120.10
+      cmd: python /lab/tank_plant.py
+    plc:
+      kind: linux
+      image: ghcr.io/autonomy-logic/openplc-runtime:v4.3.1
+      mgmt-ipv4: 172.100.120.11
+      cap-add:
+        - SYS_NICE
+        - SYS_RESOURCE
+      ports:
+        - 127.0.0.1:8443:8443
+  links:
+    - endpoints: ["server:eth1", "client:eth1"]

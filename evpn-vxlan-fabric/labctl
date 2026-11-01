@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Thin shim. Lifecycle lives in the repository-level driver and in labs.toml;
+# this file keeps the documented per-lab commands working.
+set -euo pipefail
+
+lab=evpn-vxlan-fabric
+repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+
+# These commands operate on the whole repository, so they take no lab name.
+case "${1:-}" in
+  check|list|doctor) exec "$repo/labctl" "$@" ;;
+  *) exec "$repo/labctl" "$@" "$lab" ;;
+esac

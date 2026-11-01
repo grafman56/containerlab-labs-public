@@ -1,0 +1,7 @@
+# <vlan-id> <interface-name>
+# Only VLANs listed here are permitted. A RADIUS reply naming a VLAN that is
+# absent from this file is REJECTED by hostapd rather than silently ignored,
+# which is the behaviour you want: a typo in the NAC should not become a
+# station quietly sitting in the wrong segment.
+10 wlan0.10
+30 wlan0.30

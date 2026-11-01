@@ -1,0 +1,16 @@
+name: docsis-pnm-poc
+
+# This node runs the CableLabs ns-3 DOCSIS example. PNM records remain
+# synthetic fixtures and are generated separately by the docsis-pnm repo.
+mgmt:
+  network: clab-docsis-pnm-poc
+  ipv4-subnet: 172.104.1.0/24
+
+topology:
+  nodes:
+    ns3:
+      kind: linux
+      image: docsis-ns3-poc:ns3.41
+      mgmt-ipv4: 172.104.1.10
+      cmd: /bin/sh -c './ns3 run residential-example; sleep infinity'
+  links: []

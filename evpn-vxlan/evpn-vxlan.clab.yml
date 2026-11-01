@@ -46,12 +46,28 @@ topology:
       exec:
         - ip link set eth1 up
         - ip address add 10.10.10.11/24 dev eth1
+        - ip route add 10.20.20.0/24 via 10.10.10.1
     host2:
       image: alpine:3.20
       cmd: sleep infinity
       exec:
         - ip link set eth1 up
         - ip address add 10.10.10.12/24 dev eth1
+        - ip route add 10.20.20.0/24 via 10.10.10.1
+    host3:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.20.20.13/24 dev eth1
+        - ip route add 10.10.10.0/24 via 10.20.20.1
+    host4:
+      image: alpine:3.20
+      cmd: sleep infinity
+      exec:
+        - ip link set eth1 up
+        - ip address add 10.20.20.14/24 dev eth1
+        - ip route add 10.10.10.0/24 via 10.20.20.1
 
   links:
     - endpoints: ["spine1:eth1", "leaf1:eth1"]
@@ -60,3 +76,5 @@ topology:
     - endpoints: ["spine2:eth2", "leaf2:eth2"]
     - endpoints: ["leaf1:eth3", "host1:eth1"]
     - endpoints: ["leaf2:eth3", "host2:eth1"]
+    - endpoints: ["leaf1:eth4", "host3:eth1"]
+    - endpoints: ["leaf2:eth4", "host4:eth1"]

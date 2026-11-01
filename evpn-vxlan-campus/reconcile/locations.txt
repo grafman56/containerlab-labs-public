@@ -1,0 +1,62 @@
+# The spreadsheet you used to keep in your head.
+#
+# In a hierarchical design the PREFIX was the location. 10.20.30.0/24 meant
+# the nursing building, third floor, because you decided that at design time
+# and then cabled it that way. You could read a place off an address with no
+# tool at all.
+#
+# EVPN takes that away on purpose: the same VNI is live on every leaf and the
+# anycast gateway is the same address everywhere. Location did not disappear
+# though -- it MOVED, out of the prefix and into the next-hop. A type-2 route
+# says "this MAC is behind VTEP 10.255.0.1 in VNI 1010", and that VTEP is a
+# leaf, and a leaf is in a closet, in a building.
+#
+# So: the VTEP loopback plan is the new subnet plan, and it deserves the same
+# care you used to give the subnet plan. Number it with geography in it, e.g.
+#
+#     10.255.<site>.<building><closet>
+#
+# and every type-2 route in the fabric carries a readable location for free.
+# This lab deliberately does NOT do that -- leaves are 10.255.0.1 to .4, flat
+# and geography-free, which is the common mistake. This file is the patch over
+# it, and the reason you want the numbering instead of the file.
+#
+# A real one is NetBox or Catalyst Center or BlueCat's IPAM tree, and the
+# lookup is an API call. The format matters less than the fact that something
+# must answer "which closet is 10.255.0.1".
+#
+# Format:  key = place
+# Keys:    a leaf name, a VTEP loopback, or leaf/interface for a patch panel
+#          port.
+
+# --- Site A: Howard-Tilton, the fabric closets ---
+leaf1a       = Site A / Howard-Tilton / IDF-1 (basement)
+10.255.0.1   = Site A / Howard-Tilton / IDF-1 (basement)
+leaf2a       = Site A / Howard-Tilton / IDF-2 (floor 3)
+10.255.0.2   = Site A / Howard-Tilton / IDF-2 (floor 3)
+bdr-a        = Site A / Howard-Tilton / MDF, internet edge
+bdr-a2       = Site A / Howard-Tilton / MDF, secondary border leaf
+10.255.1.3   = Site A / Howard-Tilton / MDF, secondary border leaf
+10.255.1.1   = Site A / Howard-Tilton / MDF, internet edge
+
+# --- Site B: Uptown, the second campus ---
+leaf1b       = Site B / Uptown / IDF-1
+10.255.0.3   = Site B / Uptown / IDF-1
+leaf2b       = Site B / Uptown / IDF-2
+10.255.0.4   = Site B / Uptown / IDF-2
+bdr-b        = Site B / Uptown / MDF, internet edge
+bdr-b2       = Site B / Uptown / MDF, secondary border leaf
+10.255.1.4   = Site B / Uptown / MDF, secondary border leaf
+10.255.1.2   = Site B / Uptown / MDF, internet edge
+
+# --- Ports, which is the granularity a /24 never gave you ---
+leaf1a/eth4.10 = Howard-Tilton IDF-1, patch 4 -> ap-a1, ceiling of room 112
+leaf1a/eth4.30 = Howard-Tilton IDF-1, patch 4 -> ap-a1, ceiling of room 112
+leaf1a/eth4    = Howard-Tilton IDF-1, patch 4 -> access/AP trunk
+leaf1a/eth5    = Howard-Tilton IDF-1, patch 5 -> host1, rack 3
+leaf2a/eth4    = Howard-Tilton IDF-2, patch 4 -> nac (RADIUS)
+leaf2a/eth5    = Howard-Tilton IDF-2, patch 5 -> fed (eduroam roaming operator)
+leaf2a/eth6    = Howard-Tilton IDF-2, patch 6 -> idp-remote
+leaf2a/eth7    = Howard-Tilton IDF-2, patch 7 -> ddi (DNS/DHCP/IPAM)
+leaf2b/eth3    = Uptown IDF-2, patch 3 -> host4, rack 2
+leaf1b/eth3    = Uptown IDF-1, patch 3 -> host3, rack 1

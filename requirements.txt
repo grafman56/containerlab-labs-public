@@ -1,0 +1,9 @@
+# Dependencies for the static checks in validate-repository.sh.
+#
+# The lifecycle driver (./labctl) and the repository manifest checks need
+# nothing beyond the Python standard library. Only the full topology parse
+# needs PyYAML.
+#
+#   python3 -m pip install -r requirements.txt
+#   ./validate-repository.sh
+PyYAML==6.0.3
