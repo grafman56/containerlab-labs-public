@@ -370,3 +370,20 @@ Manager. Each of those is a credential and a client, not a new idea.
 **Accounting-Start as the trigger.** `publish.py` is run on demand. FreeRADIUS
 `rlm_exec` on Accounting-Start is how this becomes event-driven — and
 measuring the latency *before* doing that is the point of having the number.
+
+## Try it: a role change
+
+Move `jsmith` from the staff VLAN to the visitor VLAN and watch the registers disagree.
+
+1. In `nac`, change `Tunnel-Private-Group-ID` for `jsmith@campus.edu` from `"10"` to `"30"` in
+   `/etc/freeradius/3.0/mods-config/files/authorize`, then restart the RADIUS process
+   (see `identity/README.md`).
+2. Force a full re-authentication. `reassociate` is not enough, the supplicant reuses its cached key:
+   `wpa_cli -i wlan0 disconnect; wpa_cli -i wlan0 pmksa_flush; wpa_cli -i wlan0 reconnect`
+   in `sta-staff`.
+3. `./labctl reconcile` reports `CRITICAL WRONG_SEGMENT`: NAC authorized staff, the fabric holds
+   the MAC in VNI 1030. The station keeps its old IP until it renews its lease, as a real client does.
+4. Revert the file, restart RADIUS, and re-authenticate the same way. The finding stays for about
+   three minutes, until the AP's bridge ages out the MAC it learned on the old VLAN.
+
+The wired port is not dynamic here: `edge/authorize-port.sh` moves it by hand, so only the Wi-Fi path follows RADIUS.

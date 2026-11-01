@@ -413,9 +413,17 @@ Roughly in order of how much they teach.
    whichever leaf the underlay picked. Loopback-sourced relay plus the right
    subnet-selection option is the fix. This breaks real deployments.
 
+> **Restarting RADIUS.** Never `docker restart` a lab node: it gets a new
+> network namespace and loses its links, and only a full `./labctl down` and
+> `up` brings it back. `freeradius -X` ignores SIGHUP and reads
+> `/etc/freeradius/3.0/mods-config/files/authorize`, not `users`. Edit that,
+> then `docker exec clab-evpn-vxlan-campus-nac pkill freeradius`, then
+> `docker exec -d clab-evpn-vxlan-campus-nac sh -c 'freeradius -X > /tmp/radius.log 2>&1'`.
+> Edits made in the container are lost on redeploy; the source is `nac/authorize`.
+
 3. **Reproduce the DEFAULT-realm trap.** In `nac/proxy.conf` replace the
    explicit `realm remote.edu` pool with `realm DEFAULT { auth_pool =
-   eduroam-pool, nostrip }`, restart `nac`, and watch `sta-staff` fail with
+   eduroam-pool, nostrip }`, restart the RADIUS process (see the box below, not `docker restart`), and watch `sta-staff` fail with
    E=691 while `sta-visitor` keeps working. Then find it from the logs alone.
 
 4. **RadSec between the proxies.** Today `nac` → `fed` → `idp-remote` is
