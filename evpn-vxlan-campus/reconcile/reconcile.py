@@ -36,7 +36,8 @@ SEVERITY = ("CRITICAL", "WARN", "INFO")
 # code with nothing open; test_reconcile.py checks this list against the source.
 CODES = {
     "CRITICAL": ("DUPLICATE_MAC", "LEASE_REASSIGNED", "STALE_PUBLICATION",
-                 "VRF_MISMATCH", "WRONG_SEGMENT", "WRONG_TAG", "WRONG_USER"),
+                 "VRF_MISMATCH", "WRONG_SEGMENT", "WRONG_TAG", "WRONG_USER",
+                 "UNAUTHENTICATED"),
     "WARN": ("LEASE_EXPIRED", "MISSING_USER", "NO_ADDRESS", "OFF_IPAM",
              "PUBLISHED_WITHOUT_LEASE", "UNPUBLISHED", "UNAUTHENTICATED"),
     "INFO": ("MOBILITY", "NO_USERNAME_TO_PUBLISH"),
