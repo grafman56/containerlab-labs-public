@@ -235,7 +235,9 @@ def latencies(nacs, fw):
     out = []
     for p in fw.values():
         s = nacs.get(p["mac"])
-        if s and p["published_at"] and s["ts"]:
+        # a negative gap means the session was renewed after the last publish,
+        # so that publish says nothing about how fast the first one was
+        if s and p["published_at"] and s["ts"] and p["published_at"] >= s["ts"]:
             out.append(p["published_at"] - s["ts"])
     return out
 

@@ -131,6 +131,9 @@ def main():
     assert codes(f, "10.10.10.100") == set(), codes(f, "10.10.10.100")
 
     assert sorted(latencies(nacs, fw)) == [6, 8, 10], latencies(nacs, fw)
+    # a session renewed after the publish must not give a negative latency
+    renewed = {m: dict(s, ts=s["ts"] + 10**6) for m, s in nacs.items()}
+    assert latencies(renewed, fw) == [], latencies(renewed, fw)
 
     # A clean campus produces no findings at all.
     clean_fab = {("TENANT-A", "aa:c1:ab:fe:fc:8a"): dict(
