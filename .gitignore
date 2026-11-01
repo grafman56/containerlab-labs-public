@@ -18,3 +18,6 @@ __pycache__/
 **/config/
 .tmp/
 **/ansible/inventory.yml
+
+# per-deploy CA certificates the campus lab copies out of its RADIUS nodes
+evpn-vxlan-campus/identity/sta/*-ca.pem
