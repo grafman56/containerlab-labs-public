@@ -60,13 +60,34 @@ cleanup() { # always leave the lab as found
 }
 trap cleanup EXIT
 
+# The firewall rule the whole demo is about: staff may ssh to the data centre.
+# It names no address. Who is "staff" is whatever User-ID last told the firewall.
+setup_rule() {
+  curl -s -G "$url/api" --data-urlencode type=config --data-urlencode action=set \
+    --data-urlencode "xpath=security/rules/entry[@name='staff-ssh']" --data-urlencode \
+    'element=<entry name="staff-ssh"><source>any</source><destination>any</destination><application>ssh</application><source-tag><member>role:staff</member></source-tag><action>allow</action></entry>' >/dev/null
+}
+policy() { # policy <ip> allow|deny : what the firewall would do with ssh from that address
+  local got
+  got=$(curl -s -G "$url/api" --data-urlencode type=op --data-urlencode \
+    "cmd=<test><security-policy-match><from>trust</from><to>dc</to><source>$1</source><application>ssh</application></security-policy-match></test>" \
+    | grep -o '<action>[a-z]*' | head -1 | cut -c9-)
+  if [ "$got" = "$2" ]; then say "ok: ssh from $1 -> $got"; else say "FAIL: ssh from $1 is '$got', expected $2"; fails=$((fails + 1)); fi
+}
+
+# Start from an empty firewall, so a rerun means the same thing as a first run.
+"$here/labctl" publish --panos "$url" --flush >/dev/null 2>&1
+
 step "1. Start state: stations get addresses from DDI"
-docker exec "$staff" timeout 20 dhclient -1 eth1 >/dev/null 2>&1
+# Leases last an hour; renew both so the registers see addressed sessions.
+for i in eth1 wlan0; do docker exec "$staff" timeout 25 dhclient -1 "$i" >/dev/null 2>&1; done
 docker exec "$staff" ip -br addr | grep -E 'eth1|wlan0' | cut -c1-70
 say "The visitor has no DHCP lease. That is a known gap, see reconcile/README.md."
 
+setup_rule
 step "2. Before publishing: NAC knows the users, the firewall does not"
 show
+policy 10.10.10.100 deny
 say "Expect UNPUBLISHED for jsmith: authenticated, but the firewall has no mapping."
 
 step "3. Publish NAC identity to the firewall (user + role/segment tags)"
@@ -74,6 +95,8 @@ step "3. Publish NAC identity to the firewall (user + role/segment tags)"
 show
 expect STALE_PUBLICATION absent
 expect WRONG_ absent
+policy 10.10.10.100 allow
+policy 10.10.10.101 allow
 
 step "4. What the firewall now holds"
 curl -s "$url/api/?type=op&cmd=<show><user><ip-user-mapping><all/></ip-user-mapping></user></show>" | head -c 600; echo
@@ -106,6 +129,8 @@ expect STALE_PUBLICATION present
 step "8. FIX: expire what no session backs"
 "$here/labctl" publish --panos "$url" --expire 2>&1 | tail -4 | cut -c1-160
 expect STALE_PUBLICATION absent
+policy 10.10.10.101 deny
+policy 10.10.10.100 allow
 
 step "9. BREAK: someone hand-edits the firewall (wrong role tag)"
 ip=$(docker exec "$staff" ip -4 -o addr show wlan0 | awk '{print $4}' | cut -d/ -f1)
@@ -120,7 +145,7 @@ expect WRONG_TAG absent
 
 step "11. Restore the wired laptop and publish; end state"
 docker exec "$staff" wpa_cli -i eth1 logon >/dev/null
-sleep 25; docker exec "$staff" timeout 20 dhclient -1 eth1 >/dev/null 2>&1
+sleep 25; for i in eth1 wlan0; do docker exec "$staff" timeout 25 dhclient -1 "$i" >/dev/null 2>&1; done
 "$here/labctl" publish --panos "$url" --expire >/dev/null 2>&1
 show
 expect "" absent

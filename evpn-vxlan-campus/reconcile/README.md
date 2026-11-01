@@ -335,7 +335,7 @@ Useful alerts: `STALE_PUBLICATION > 0` (a session ended without an Accounting-St
 ### Known gaps in the PAN-OS leg
 
 - A visitor holds a static address in this lab and gets no DHCP lease, so it has no IP to publish. The anonymous-visitor path (tags, no user) is covered by the self-check and a fake-register run, not by the live lab.
-- Policy does not match on user or tag. The emulator's `security-policy-match` takes zone and application only.
+- The emulator matches a rule on `source-user` and `source-tag`, but a real PAN-OS matches on address objects and dynamic address groups. Re-check that on a real firewall, see the checklist in the `panos-emulator` `TRAINING.md`.
 - `LEASE_REASSIGNED` cannot fire against the PAN-OS register, and publication latency is not reported (see above).
 
 ## What the firewall register is, and is not
