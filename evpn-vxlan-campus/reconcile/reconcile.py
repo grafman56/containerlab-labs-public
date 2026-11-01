@@ -89,7 +89,8 @@ def reconcile(fab, nacs, leases, fw, now, infra=frozenset()):
     # ---- firewall-side: what have we told the firewall that is not true? ----
     for ip, pub in sorted(fw.items()):
         sess = nacs.get(pub["mac"]) if pub["mac"] else None
-        if sess is None:
+        if sess is None and not pub["mac"]:
+            # no MAC to go on: fall back to any live session of that user
             sess = next((s for s in nacs.values()
                          if s["user"] and s["user"] == pub["user"]), None)
         if sess is None or not sess["live"]:

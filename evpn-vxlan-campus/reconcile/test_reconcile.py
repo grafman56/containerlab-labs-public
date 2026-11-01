@@ -149,6 +149,12 @@ def main():
     assert "UNAUTHENTICATED" in codes(reconcile(ap, {}, {}, {}, NOW), "02:00:00:00:00:99")
     assert "UNAUTHENTICATED" not in codes(reconcile(ap, {}, {}, {}, NOW, {"02:00:00:00:00:99"}), "02:00:00:00:00:99")
 
+    # Two devices, one user: when one device's session ends, its address is
+    # stale even though the user still has the other session.
+    two = dict(fw["10.10.10.100"], ip="10.10.10.101", mac="aa:c1:ab:00:00:99")
+    f2 = reconcile({}, {"aa:c1:ab:fe:fc:8a": nacs["aa:c1:ab:fe:fc:8a"]}, {}, {"10.10.10.101": two}, NOW)
+    assert "STALE_PUBLICATION" in codes(f2, "10.10.10.101"), f2
+
     check_panos()
     check_prometheus()
     print("ok")
