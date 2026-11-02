@@ -173,3 +173,15 @@ verify = []
 # A small host is not a safe target
 # for six network-OS nodes plus Telegraf, InfluxDB and Grafana.
 min_free_memory_mb = 4096
+
+[labs.evpn-vxlan-srlinux]
+dir = "evpn-vxlan-srlinux"
+topology = "topology.yml"
+driver = "netlab"
+summary = "Four-node SR Linux EVPN-VXLAN fabric, three segments, explicit VLAN to VNI binding in the committed config"
+mgmt_subnet = "172.21.20.0/24"
+# `netlab validate` runs the inline checks in topology.yml. There is no
+# separate validation file to list here.
+verify = []
+# Four network-OS nodes plus three Linux hosts, so this refuses a 3 GB host.
+min_free_memory_mb = 6144

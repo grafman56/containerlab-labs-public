@@ -1,0 +1,142 @@
+---
+# Small EVPN-VXLAN fabric on Nokia SR Linux.
+#
+# Why this lab exists: on a real NOS the VLAN to VNI binding is configuration,
+# not a kernel object. Every vni below is a line in the committed config, and
+# the device prints both the number and the state. See README.md.
+#
+# Spin it up and down from this directory:
+#
+#   netlab create
+#   netlab up
+#   netlab validate
+#   netlab down --cleanup
+#
+# Changing a mapping is a one-line edit: change vni under the VLAN, run
+# netlab up again if the lab is already running.
+name: evpn-srlinux
+
+provider: clab
+
+defaults:
+  device: srlinux
+  providers:
+    clab:
+      # No lab prefix, so the containers are named l1, l2 and so on, which
+      # makes docker exec and netlab connect read the same.
+      lab_prefix: ""
+
+module: [ vlan, vxlan, ospf, bgp, evpn, vrf ]
+
+addressing:
+  loopback:
+    ipv4: 10.255.0.0/24
+  router_id:
+    ipv4: 10.255.0.0/24
+  p2p:
+    ipv4: 10.0.0.0/24
+    prefix: 31
+  mgmt:
+    # Its own range and bridge, so this lab and enterprise-fabric can coexist
+    # and neither collides with the Containerlab default of 172.20.20.0/24.
+    ipv4: 172.21.20.0/24
+    start: 100
+    _network: netlab_evpn_srlinux
+
+bgp:
+  as: 65000
+
+ospf:
+  area: 0.0.0.0
+
+# The mapping. VLAN id is the 802.1Q tag, vni is the VXLAN identifier, vrf is
+# the routing instance the segment belongs to.
+vlans:
+  staff:
+    id: 10
+    vni: 1010
+    vrf: tenant
+    prefix: 10.10.10.0/24
+  services:
+    id: 20
+    vni: 1020
+    vrf: tenant
+    prefix: 10.20.20.0/24
+  visitor:
+    id: 30
+    vni: 1030
+    vrf: guest
+    prefix: 10.30.30.0/24
+
+# Symmetric IRB. Each VRF gets its own transit VNI, the same way a real fabric
+# does. netlab also assigns a local VLAN for each transit VNI.
+vrfs:
+  tenant:
+    evpn.transit_vni: 4100
+  guest:
+    evpn.transit_vni: 4200
+
+groups:
+  spines:
+    members: [ s1, s2 ]
+    bgp.rr: true
+  leaves:
+    members: [ l1, l2 ]
+
+nodes:
+  s1:
+    id: 1
+  s2:
+    id: 2
+  l1:
+    id: 11
+  l2:
+    id: 12
+  # Hosts. Two in the same segment on different leaves prove stretched L2 and
+  # a remote type-2 route. The third is in another VRF and must not reach them.
+  h1:
+    id: 21
+    device: linux
+  h2:
+    id: 22
+    device: linux
+  h3:
+    id: 23
+    device: linux
+
+links:
+  # Underlay. OSPF area 0 on every fabric link.
+  - s1-l1
+  - s1-l2
+  - s2-l1
+  - s2-l2
+  - s1-s2
+
+  # Tenant segments. Same VLAN on both leaves, so the same VNI is stretched.
+  - l1:
+    h1:
+      vlan.access: staff
+  - l2:
+    h2:
+      vlan.access: staff
+  - l2:
+    h3:
+      vlan.access: visitor
+
+validate:
+  ospf:
+    description: Every fabric link is in OSPF full state
+    wait: 60
+    wait_msg: Waiting for the OSPF underlay
+    nodes: [ s1, s2, l1, l2 ]
+    devices: [ srlinux ]
+    exec: show network-instance default protocols ospf neighbor
+    valid: stdout.lower().count('full') >= 2
+  evpn:
+    description: Both leaves have an EVPN session to both route reflectors
+    wait: 60
+    wait_msg: Waiting for the EVPN overlay
+    nodes: [ l1, l2 ]
+    devices: [ srlinux ]
+    exec: show network-instance default protocols bgp neighbor
+    valid: stdout.lower().count('established') >= 2
