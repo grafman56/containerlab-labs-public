@@ -45,6 +45,7 @@ cd evpn-vxlan-srlinux
 netlab up                 # deploy and configure
 ./post-up.sh              # load fw zones, fw default-route-only to the fabric, host default routes
 netlab validate           # OSPF full, EVPN established
+./demo.sh                 # narrated walkthrough, about 2 minutes (PAUSE=1 waits for Enter)
 ./verify.sh               # VNIs, pings, fw zones, tags, policy match (needs the emulator)
 
 # in panos-emu-public (separate terminal):

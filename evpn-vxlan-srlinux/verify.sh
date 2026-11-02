@@ -18,6 +18,12 @@ echo "VLAN to VNI on the leaves"
 vni=$(./show-vni.sh)
 for v in "vxlan0.10 .*VNI 1010" "vxlan0.20 .*VNI 1020" "vxlan0.30 .*VNI 1030" "VNI 4100" "VNI 4200"; do has "$v" "$vni" "$v"; done
 
+echo "OSPF is underlay only"
+for l in l1 l2; do
+  n=$(docker exec $P-$l sr_cli "info flat from running network-instance * protocols ospf" | grep -vc "network-instance default ")
+  [ "$n" = 0 ] && echo "PASS $l: OSPF only in the default network-instance" || { echo "FAIL $l: OSPF configured in a VRF"; fail=1; }
+done
+
 echo "Dataplane"
 check "h1 -> h2 same VLAN, other leaf" ok h1 10.10.10.22
 check "h1 -> h4 VLAN 10 to 20 (IRB)" ok h1 10.20.20.24
