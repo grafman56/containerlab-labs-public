@@ -1,9 +1,8 @@
 name: ibgp-rr
 
-# Explicit mgmt subnet: containerlab's default 172.20.20.0/24 overlaps the
-# monitoring stack's 172.20.0.0/16 on PC1. 172.100.100.0/24 is well clear of
-# every existing Docker network (bridge/gitlab/semaphore/monitoring/netbox/
-# vault/homepage/llm_memory/minio all live in 172.17.0.0/16 - 172.25.0.0/16).
+# Explicit mgmt subnet: containerlab's default 172.20.20.0/24 can overlap other
+# Docker networks on the host. 172.100.100.0/24 is well clear of the usual
+# Docker ranges (172.17.0.0/16 - 172.25.0.0/16).
 mgmt:
   network: clab-ibgp-rr
   ipv4-subnet: 172.100.100.0/24
