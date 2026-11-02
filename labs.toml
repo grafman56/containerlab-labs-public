@@ -141,19 +141,6 @@ verify = []
 external_images = ["docsis-ns3-poc:ns3.41"]
 
 # ---------------------------------------------------------------------------
-# Industrial protocols. The simulator image is built locally; OpenPLC is pinned.
-# ---------------------------------------------------------------------------
-
-[labs.modbus-tcp]
-dir = "modbus-tcp"
-topology = "modbus-tcp.clab.yml"
-summary = "Modbus simulator and client with an OpenPLC Runtime v4 soft PLC"
-mgmt_subnet = "172.100.120.0/24"
-images = ["ghcr.io/autonomy-logic/openplc-runtime:v4.3.1"]
-verify = ["verify.sh"]
-docker_builds = [{ image = "modbus-lab:3.12.1", context = "." }]
-
-# ---------------------------------------------------------------------------
 # netlab lab. Not deployed by containerlab, but it is part of the lab estate,
 # so it belongs in the registry and in the drift checks.
 # ---------------------------------------------------------------------------
