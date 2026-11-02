@@ -11,6 +11,41 @@ This models a multi-site campus of the shape people actually run: a modern
 EVPN-VXLAN fabric for the data centre, traditional hierarchical OSPF for the
 building networks that predate it, and one IGP domain spanning both.
 
+## Quick start
+
+You need a Linux host with Docker, containerlab 0.77 or newer, `python3` and
+passwordless `sudo` for the account that deploys. The lab is 35 containers and
+uses about 3.5 GB of RAM, so give the host 8 GB and 4 CPUs. Nothing else is
+required. The images build locally on the first `up`.
+
+```sh
+cd evpn-vxlan-campus
+./labctl up                # about 25 s, longer on the first run while images build
+./labctl verify            # about 2.5 min: OSPF, EVPN, failover, then the identity edge
+./labctl verify-identity   # about 80 s: 802.1X for staff and a roaming visitor
+```
+
+`verify` waits for OSPF and EVPN to converge, so it is safe to run straight after
+`up`. Each command prints `PASS` or the first thing that failed.
+
+For the guided demo, start a PAN-OS XML API first. The emulator needs only
+`python3`:
+
+```sh
+git clone https://github.com/grafman56/panos-emu-public && (cd panos-emu-public && python3 panos_emulator.py &)
+./demo.sh                  # about 2.5 min, checks its own results, safe to rerun
+```
+
+The demo moves one user between VLANs, logs a laptop off, and edits the firewall
+by hand. At each step `./labctl reconcile` shows which of the four registers
+disagrees. [Guided demo](#guided-demo) lists every step. When you are done:
+
+```sh
+./labctl down
+```
+
+If the emulator is not on `127.0.0.1:8080`, pass its URL: `./demo.sh http://HOST:PORT`.
+
 ## Topology
 
 ```text
@@ -207,7 +242,7 @@ To publish to, and reconcile against, a PAN-OS XML API such as [panos-emu-public
 
 ### Guided demo
 
-`./demo.sh [PANOS_URL]` walks one user through fabric, NAC, DDI and firewall, with changes and break/fix. It takes about 3 minutes, can be rerun, and checks its own results. It needs the lab up (`./labctl up`, `verify`, `verify-identity`) and a PAN-OS XML API on `PANOS_URL`, default `http://127.0.0.1:8080` (clone [panos-emu-public](https://github.com/grafman56/panos-emu-public) and run `python3 panos_emulator.py`).
+`./demo.sh [PANOS_URL]` walks one user through fabric, NAC, DDI and firewall, with changes and break/fix. It takes about 2.5 minutes, can be rerun, and checks its own results. It needs the lab up (`./labctl up`, `verify`, `verify-identity`) and a PAN-OS XML API on `PANOS_URL`, default `http://127.0.0.1:8080` (clone [panos-emu-public](https://github.com/grafman56/panos-emu-public) and run `python3 panos_emulator.py`).
 
 | Step | What happens | What `reconcile` shows |
 |---|---|---|

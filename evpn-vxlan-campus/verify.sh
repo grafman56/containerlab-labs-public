@@ -14,9 +14,18 @@ done
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
+# Right after `labctl up` the protocols are still converging. Give each check up
+# to $SETTLE seconds (default 150) to reach its expected count, then judge it.
+SETTLE=${SETTLE:-150}
+settle() {  # settle <min> <command that prints a count>
+  local end=$((SECONDS + SETTLE)) n
+  while n=$(eval "$2" 2>/dev/null || echo 0); [ "${n:-0}" -lt "$1" ] && [ $SECONDS -lt $end ]; do sleep 3; done
+  echo "$n"
+}
+
 echo "== OSPF underlay =="
 for node in $spines $vteps; do
-  n=$(docker exec "${lab}-${node}" vtysh -c "show ip ospf neighbor" | grep -c Full || true)
+  n=$(settle 2 "docker exec ${lab}-${node} vtysh -c 'show ip ospf neighbor' | grep -c Full || true")
   echo "${node}: ${n} full adjacencies"
   [ "$n" -ge 2 ] || fail "${node} has ${n} OSPF adjacencies, expected >= 2"
 done
@@ -29,8 +38,8 @@ echo "spine2a site-link adjacencies: ${dci}"
 
 echo "== EVPN full mesh: every VTEP peers with the other seven =="
 for node in $vteps; do
-  n=$(docker exec "${lab}-${node}" vtysh -c "show bgp l2vpn evpn summary json" \
-      | python3 -c 'import json,sys; d=json.load(sys.stdin); print(sum(1 for p in d.get("peers",{}).values() if p.get("state")=="Established"))')
+  n=$(settle 7 "docker exec ${lab}-${node} vtysh -c 'show bgp l2vpn evpn summary json' \
+      | python3 -c 'import json,sys; d=json.load(sys.stdin); print(sum(1 for p in d.get(\"peers\",{}).values() if p.get(\"state\")==\"Established\"))'")
   echo "${node}: ${n} established EVPN peers"
   [ "$n" -eq 7 ] || fail "${node} has ${n} EVPN peers, expected 7"
 done
