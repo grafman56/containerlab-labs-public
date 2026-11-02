@@ -1,58 +1,97 @@
-# Two-Site Campus: EVPN-VXLAN Fabric, Non-Fabric Buildings, Dual Internet Edge
+# Two-Site Campus Lab
 
 > **Note: the VLAN-to-VNI mapping is not an FRR setting.** FRR has no VLAN
 > object. It reads the VNIs that exist in the Linux kernel and advertises them.
 > The scripts in `scripts/` build that mapping into each node as one bridge plus
 > one VXLAN device per VNI, with untagged host ports, so no VLAN number reaches
-> the dataplane and `show evpn vni` has nothing useful to put in its VLAN
-> column. Run `./labctl show vlan-vni [NODE|all]` to see what a node really
-> holds. `DATAPLANE.md` explains why, and what changes to keep the binding in
-> the kernel where you can read it.
+> the dataplane. Run `./labctl show vlan-vni [NODE|all]` to see what a node
+> holds. `DATAPLANE.md` explains why.
 
-Two site fabrics joined by one point-to-point link, one tenant stretched across
-both, a border-leaf pair at each site, and a non-fabric building hanging off
-each site in its own OSPF area. The fabric underlay is OSPFv2 area 0. The
-overlay is AS 65000, with every VTEP peering directly with every other VTEP.
+A virtual campus network with two sites, run with Containerlab. Each site has an
+EVPN-VXLAN data-center fabric, a building on a traditional OSPF network, a
+firewall and an internet link. It also has Wi-Fi with 802.1X login, DHCP and DNS.
 
-This models a multi-site campus of the shape people actually run: a modern
-EVPN-VXLAN fabric for the data centre, traditional hierarchical OSPF for the
-building networks that predate it, and one IGP domain spanning both.
+You can use it to:
+
+- learn how EVPN-VXLAN, OSPF areas and border failover work, by breaking them
+- watch a user log in, get an address, and get a firewall rule applied
+- test automation against the same network that a script would see in production
+
+The routers run FRRouting. The firewall is a PAN-OS XML API emulator (see
+[the demo](#the-demo)). No packet from this lab goes to a real firewall.
+
+## What you need
+
+- A Linux machine or VM. Debian 13 is tested. **Stock WSL2 does not work**:
+  its kernel has no `mac80211_hwsim`, which the virtual Wi-Fi needs. Check your
+  machine with `sudo modprobe mac80211_hwsim`. No error means it works.
+- 8 GB RAM and 4 CPUs. The lab runs 35 containers and uses about 3.5 GB.
+- 10 GB of free disk space for images.
+- Docker. If you do not have it: `curl -fsSL https://get.docker.com | sh`, then
+  add yourself to the `docker` group and log in again.
+- Containerlab 0.77 or newer. If you do not have it:
+  `curl -sL https://containerlab.dev/setup | sudo -E bash -s "all"`
+- `python3` and `git`.
+- `sudo` without a password prompt. Containerlab needs root to make network
+  namespaces. Test with `sudo -n true`. No output means it works.
 
 ## Quick start
 
-You need a Linux host with Docker, containerlab 0.77 or newer, `python3` and
-passwordless `sudo` for the account that deploys. The lab is 35 containers and
-uses about 3.5 GB of RAM, so give the host 8 GB and 4 CPUs. Nothing else is
-required. The images build locally on the first `up`.
+Use two terminals. In the first, get the lab and start it:
 
 ```sh
-cd evpn-vxlan-campus
-./labctl up                # about 25 s, longer on the first run while images build
-./labctl verify            # about 2.5 min: OSPF, EVPN, failover, then the identity edge
-./labctl verify-identity   # about 80 s: 802.1X for staff and a roaming visitor
-./labctl show vlan-vni     # kernel and zebra view of the VXLAN dataplane
+git clone https://github.com/grafman56/containerlab-labs-public
+cd containerlab-labs-public/evpn-vxlan-campus
+./labctl up
 ```
 
-`verify` waits for OSPF and EVPN to converge, so it is safe to run straight after
-`up`. Each command prints `PASS` or the first thing that failed.
-
-For the guided demo, start a PAN-OS XML API first. The emulator needs only
-`python3`:
+`up` takes about 25 seconds. On the first run it also builds two small images,
+so allow a few minutes. Then check that everything works:
 
 ```sh
-git clone https://github.com/grafman56/panos-emu-public && (cd panos-emu-public && python3 panos_emulator.py &)
-./demo.sh                  # about 2.5 min, checks its own results, safe to rerun
+./labctl verify
 ```
 
-The demo moves one user between VLANs, logs a laptop off, and edits the firewall
-by hand. At each step `./labctl reconcile` shows which of the four registers
-disagrees. [Guided demo](#guided-demo) lists every step. When you are done:
+This takes about 2.5 minutes. It waits for OSPF and EVPN to settle, so you can
+run it right after `up`. It prints `PASS`, or the first thing that failed.
+
+In the second terminal, start the firewall emulator. It needs only `python3`:
+
+```sh
+git clone https://github.com/grafman56/panos-emu-public
+cd panos-emu-public
+python3 panos_emulator.py
+```
+
+Leave it running. Back in the first terminal, run the demo:
+
+```sh
+./demo.sh
+```
+
+The demo takes about 2.5 minutes. It prints `PASS` at the end. You can run it
+again at any time. When you are done:
 
 ```sh
 ./labctl down
 ```
 
-If the emulator is not on `127.0.0.1:8080`, pass its URL: `./demo.sh http://HOST:PORT`.
+If the emulator is not on `127.0.0.1:8080`, give the demo its address:
+`./demo.sh http://HOST:PORT`.
+
+## Words used in this lab
+
+| Word | Meaning |
+|---|---|
+| EVPN | A way to share MAC and IP addresses between switches, using BGP. |
+| VXLAN | A tunnel that carries Layer 2 traffic across a Layer 3 network. |
+| VTEP | A switch that starts or ends a VXLAN tunnel. |
+| VNI | The number that names one VXLAN network. 1010 is one VLAN stretched across both sites. |
+| Leaf, spine | Leaves connect to hosts. Spines connect the leaves to each other. |
+| Border leaf | A leaf that connects the fabric to the firewall and the internet. |
+| OSPF area | A group of routers that share one OSPF database. Area 0 is the core. |
+| NAC | The server that checks a login (802.1X) and says which VLAN the user gets. |
+| DDI | The DHCP and DNS server. |
 
 ## Topology
 
@@ -74,240 +113,143 @@ AREA 1          <------------ AREA 0 ------------>        AREA 2
 totally stubby       fabric underlay + core               NSSA
 ```
 
-Spines are pure OSPF transit here. They run no BGP and never terminate VXLAN, so
-the EVPN mesh has eight speakers: four access leaves and four border leaves,
-with twenty-eight sessions.
-
-Each border leaf connects to both local spines and to the site's firewall.
-Access leaves connect to the spines. The spines route the underlay; border
-leaves terminate tenant VXLAN and connect the fabric to outside networks.
-
-**This follows from the full mesh, and it is not the vendor-default design.**
-Cisco's guide calls the spine "the most logical place to put an MP-BGP EVPN
-route reflector", and Cisco's own campus fabric tooling defaults to two or four
-spine route reflectors. A full mesh removes the need for reflectors, which is
-why the spines here carry no BGP — but if you are describing a fabric you did
-not build, check whether its spines are reflectors. Most are. The `ibgp-rr`
-lab in this repository covers the reflector pattern.
-
 ![Two-campus EVPN-VXLAN topology](assets/evpn-vxlan-campus-topology.svg)
 
-## OSPF area design
+- Each site has two spines, two leaves and two border leaves. The two sites
+  join over one link between `spine2a` and `spine1b`.
+- The fabric uses OSPF area 0 underneath. Eight switches (four leaves, four
+  border leaves) run EVPN, and each one peers with all the others. The spines
+  only forward traffic. They do not run BGP.
+- Each site also has a building (`dist-a1`, `dist-b1`) on its own OSPF area.
+  Building A1 is a totally stubby area. Building B1 is an NSSA, because it has
+  its own internet provider (`inet-res`).
+- Each border leaf has a link to the site firewall. The firewall has the link to
+  the internet provider.
+- Host 1 and host 3 are on the same VLAN (VNI 1010) in different sites. Host 1
+  and host 4 are on different VLANs in different sites, so they route.
 
-Area 0 covers the fabric underlay and the ABR uplinks. The fabric itself is a
-single area on purpose. Cisco states it directly: *"The general recommendation
-is to use a single area, 0, in the underlay. Multiple areas in the underlay are
-possible to configure but unnecessary because the underlay's role is to provide
-VTEP and BGP peering reachability."* Their scale argument is that a 1000-leaf
-fabric produces roughly 2000 underlay LSAs, which any modern switch absorbs
-without strain.
+Most spine switches in real networks act as BGP route reflectors. This lab
+does not use any, so you can see every session. The `ibgp-rr` lab in this
+repository shows the reflector design. [ARCHITECTURE.md](ARCHITECTURE.md)
+explains this and the other design choices.
 
-This is vendor design guidance, not a standard. No RFC requires it: RFC 7432 and
-RFC 8365 are both underlay-agnostic, and RFC 7938 argues for dropping the IGP
-entirely in favour of eBGP.
+## The demo
 
-The buildings are where hierarchy belongs, and that is also documented practice:
-the core stays in area 0 with each distribution block in its own area attached
-to it, so a building becomes an area and its distribution node becomes the ABR.
-That is exactly `dist-a1` and `dist-b1`.
+`./demo.sh` follows one user, `jsmith`, through four systems that each know part
+of the story:
 
-The buildings are where hierarchy belongs. They end up with different area types
-because they have different facts, not because the lab wanted variety:
+1. the fabric (which MAC is on which switch)
+2. the NAC (who logged in)
+3. the DDI (which address each device got)
+4. the firewall (which address belongs to which user and role)
 
-| | Building A1 | Building B1 |
+At each step, `./labctl reconcile` compares the four and reports where they
+disagree. The demo makes a change, shows the finding, fixes it, and shows the
+finding clear.
+
+| Step | What happens | What `reconcile` shows |
 |---|---|---|
-| Provider of its own | none | a research circuit, `inet-res` AS 65400 |
-| Forced area type | free to choose | **NSSA** — nothing else is legal |
-| Area | 1, totally stubby (`area 1 stub no-summary`) | 2, NSSA (`area 2 nssa`, RFC 3101) |
-| LSDB | **3 LSAs** | **40 LSAs** |
-| OSPF routes | **1** — a single default | **37** — default plus every type 3 summary |
+| 1-2 | Devices get addresses. The NAC knows `jsmith`. The firewall does not. | `UNPUBLISHED` |
+| 3-4 | `publish` sends the user and role tags to the firewall. A rule that allows ssh from `role:staff` now matches. | clean |
+| 5-6 | The NAC moves `jsmith` to the visitor VLAN, then back. | `WRONG_SEGMENT`, then clean |
+| 7-8 | The wired laptop logs off. `publish --expire` removes its entry, and the rule stops matching. | `STALE_PUBLICATION`, then clean |
+| 9-10 | Someone adds a wrong role tag on the firewall. `publish` replaces it. | `WRONG_TAG`, then clean |
+| 11 | The demo restores everything. | no `CRITICAL` |
 
-A1 is an ordinary building. Nothing is redistributed inside it, so it has no
-ASBR and every stub flavour is available; totally stubby is the tightest, and
-there is no reason not to take it.
+Two `NO_ADDRESS` warnings stay on screen the whole time. The visitor has no DHCP
+lease in this lab. This is known and is not a failure.
 
-B1 has its own provider. `acc-b1` runs eBGP with `inet-res` and redistributes
-that into OSPF, which makes it an ASBR — and **stub and totally stubby areas
-forbid an ASBR outright.** NSSA is not a preference here, it is the only legal
-choice, and that is precisely the gap RFC 3101 was written to fill.
+The demo shortens the MAC ageing time on the bridges to 30 seconds, so step 6
+takes about one minute instead of five.
 
-So `acc-b1` originates the research network as a **type 7** inside area 2, and
-`dist-b1` translates it to a **type 5** on the way into area 0. Area 1 never
-sees it as an external at all, yet `user-a1` still reaches it over the default
-its own ABR injects. `verify.sh` asserts every step of that.
+Why four systems? The fabric and the NAC know devices by MAC address. The
+firewall knows them by IP address. Only the DHCP lease links the two.
+[reconcile/README.md](reconcile/README.md) has the details, and
+[identity/README.md](identity/README.md) explains the login, the visitor
+federation and the DHCP part.
 
-## Design decisions
+## Commands
 
-### How to read this lab
+```sh
+./labctl check             # check the files, without starting anything
+./labctl up                # start the lab
+./labctl verify            # all checks, about 2.5 minutes
+./labctl verify-identity   # only the login, VLAN and firewall checks, about 80 seconds
+./labctl show vlan-vni     # kernel and zebra view of the VXLAN dataplane
+./labctl reconcile         # compare the four systems, read only
+./labctl status            # show the containers
+./labctl down              # stop and remove the lab
+```
 
-`ARCHITECTURE.md` records which choices come from the Cisco Cloud Fabric case
-study, which are FRR/containerlab substitutions, and which remain open learning
-exercises. Treat it as the design authority for this lab; do not infer a
-vendor-specific implementation from a generic EVPN pattern.
+`verify` checks OSPF neighbors, seven established EVPN peers on each of the
+eight switches, host-to-host reachability inside a VLAN and across VLANs, the
+internet, and the order of default routes (primary border, secondary border,
+then the other site).
 
-The headline distinction is deliberate: `TENANT-A` has L3 VNI `4100` and
-`EDUROAM` has L3 VNI `4200`. The L2 VNIs inside one VRF share that VRF's L3 VNI;
-they do not share it across tenants. The `SERVICES` VRF exercise is intentionally
-not built until its route scope and firewall policy are specified.
+To publish to a firewall by hand, or to use a real PAN-OS firewall in place of
+the emulator, add `--panos URL` to `./labctl publish` and `./labctl reconcile`.
+Without `--panos`, the lab uses an nftables firewall stand-in. See
+`reconcile/README.md`.
 
-**One AS, full mesh, no route reflectors.** Eight VTEPs keeps the session count
-visible while adding border redundancy. The cost is quadratic: each new VTEP
-must peer with every existing VTEP. A larger fabric motivates route reflectors.
+## Things to try
 
-**Spines carry no BGP, because the overlay is a full mesh.** EVPN sessions ride
-loopbacks that OSPF already advertises, so the spines only have to forward. This
-keeps the underlay and overlay cleanly separable when you break one of them. It
-is a consequence of the full-mesh requirement, not the industry norm — see the
-note under Topology.
+- Shut the firewall link on `bdr-a` and watch traffic move to `bdr-a2`:
+  `docker exec clab-evpn-vxlan-campus-bdr-a vtysh -c "conf t" -c "router bgp 65000 vrf TENANT-A" -c "neighbor 198.51.100.1 shutdown"`
+- Shut the site link. Each site keeps working alone, and the EVPN mesh splits.
+- On `dist-a1`, change `area 1 stub no-summary` to `area 1 stub`. Then look at
+  the routing table on `acc-a1`. One route becomes many.
+- Shut `spine1a:eth1`. `leaf1a` keeps its EVPN sessions through `spine2a`.
+- [POLICY-EXERCISES.md](POLICY-EXERCISES.md) has exercises for prefix lists,
+  route maps, local preference and communities.
 
-**The external handoff lives on each border-leaf pair.** Each border leaf has
-a routed eBGP link to the site's firewall. The firewall peers with the ISP, so
-the border leaves do not peer directly with the ISP. Campus A also carries
-`EDUROAM` on a separate tagged link and VRF.
-
-**The buildings are in the global table, not the fabric VRF.** They reach the
-underlay and each other; they do not reach the EVPN tenants or the internet,
-because that egress lives inside VRF `TENANT-A` on the borders. Joining the two
-needs a fusion router or a firewall, and that is deliberately out of scope here.
-
-**The firewall advertises only a default route to each border leaf.** Each
-border advertises it as an EVPN type-5 route. Every leaf prefers its site's
-primary border at local preference 200, then the secondary at 190. The far
-site's borders remain the backup after both local paths fail.
-
-**Anycast gateways by identical bridge MAC, plus ARP suppression.** Every leaf
-carries both L2 VNIs with the same bridge MAC address and the same SVI address,
-so `10.10.10.1` and `10.20.20.1` are live on all four leaves at once. That
-sharing is also why `neigh_suppress` is switched on for every VXLAN bridge port.
-Without it, a leaf floods the ARP for a remote host, and the reply is answered
-by whichever leaf is local to that host, because they share the gateway MAC. The
-requesting leaf never sees it. With it, the leaf answers from the EVPN type-2
-MAC/IP routes and never floods. The hosts ping their gateway once at startup so
-their leaf has a MAC/IP to advertise before anyone asks for it.
-
-**The L3 VNI gets its own bridge.** `vxlan4100` sits in bridge `br4100`, and
-`br4100` is the SVI enslaved to the VRF. Putting the VXLAN device straight into
-the VRF leaves the VNI `State: Down` with no router MAC, and symmetric IRB never
-comes up. All border leaves also need `advertise-all-vni`, even though they hold no
-L2 VNI: without it zebra never registers the L3 VNI there and no type-5 route is
-imported or originated.
+Leave a few seconds between link changes. In one test, 24 flaps in two minutes
+caused packet loss between the sites. Traffic recovered on its own, but once it
+took more than 15 seconds after the last flap.
 
 ## Address plan
 
 | Role | Addresses |
 |---|---|
-| Site A fabric point-to-point | `10.0.0.0/24`, `/31` per link |
-| Site B fabric point-to-point | `10.0.1.0/24`, `/31` per link |
+| Site A fabric links | `10.0.0.0/24`, one `/31` per link |
+| Site B fabric links | `10.0.1.0/24`, one `/31` per link |
 | Site link | `10.0.2.0/31` |
-| Building A1 | `10.0.3.0/24` links, lo `10.255.2.x`, users `10.101.10.0/24` |
-| Building B1 | `10.0.4.0/24` links, lo `10.255.3.x`, users `10.102.10.0/24` |
-| B1 research circuit | `198.51.100.8/31`, `inet-res` lo `203.0.113.3` |
-| Spine loopbacks | `10.255.255.1` – `10.255.255.4` |
-| Leaf VTEPs | `10.255.0.1` – `10.255.0.4` |
+| Building A1 | `10.0.3.0/24` links, loopbacks `10.255.2.x`, users `10.101.10.0/24` |
+| Building B1 | `10.0.4.0/24` links, loopbacks `10.255.3.x`, users `10.102.10.0/24` |
+| B1 research link | `198.51.100.8/31`, `inet-res` loopback `203.0.113.3` |
+| Spine loopbacks | `10.255.255.1` to `10.255.255.4` |
+| Leaf VTEPs | `10.255.0.1` to `10.255.0.4` |
 | Border VTEPs | `10.255.1.1` (A primary), `.3` (A secondary), `.2` (B primary), `.4` (B secondary) |
-| Campus border to firewall | `198.51.100.0/31`, `.16/31` (A); `.2/31`, `.20/31` (B) |
-| Visitor border to firewall | `198.51.100.10/31`, `.18/31` (A) |
+| Border to firewall, campus | `198.51.100.0/31` and `.16/31` (A), `.2/31` and `.20/31` (B) |
+| Border to firewall, visitor | `198.51.100.10/31` and `.18/31` (A) |
 | ISP loopbacks | `203.0.113.1` (A), `203.0.113.2` (B) |
-| Tenant VNI 1010 | `10.10.10.0/24`, gateway `10.10.10.1` |
-| Tenant VNI 1020 | `10.20.20.0/24`, gateway `10.20.20.1` |
-| L3 VNI (VRF TENANT-A) | `4100` |
+| VNI 1010 | `10.10.10.0/24`, gateway `10.10.10.1` |
+| VNI 1020 | `10.20.20.0/24`, gateway `10.20.20.1` |
+| L3 VNI for `TENANT-A` | `4100` |
 
-Host 1 and host 3 share VNI 1010 across campuses, which is the stretched-L2
-case. Host 1 to host 4 crosses both a VNI and a campus, which is the symmetric
-IRB case.
+## Known limits and gotchas
 
-## Identity edge
+- **The VLAN-to-VNI mapping is not in the FRR config.** FRR has no command for
+  it. The scripts in `scripts/` build it with Linux bridges and VXLAN devices.
+  To change a mapping, edit the scripts, not `configs/*.conf`.
+- Each `vtysh` command prints `Can't open configuration file
+  /etc/frr/vtysh.conf`. It is harmless.
+- No EVPN multihoming. Each host connects to one leaf.
+- The two sites are one EVPN domain and one OSPF domain. A real campus might
+  use EVPN multi-site to give each site its own failure domain.
+- Each site has one firewall and one ISP. The lab tests border-switch failover,
+  not firewall or provider failover. Containerlab cannot model the MC-LAG that
+  real switch pairs use.
+- The buildings reach each other and the underlay. They do not reach the
+  tenant VRFs or the internet. Joining them needs a firewall or fusion router,
+  and this lab leaves that out on purpose.
+- The link MTU is 1500, so VXLAN leaves about 1450 for payload. Raise the MTU
+  on the fabric links before you test large packets.
+- Each ISP node advertises one loopback. There is no internet routing table.
+- The firewall nodes are FRR with nftables. They are not PAN-OS.
 
-`identity/` adds 802.1X, an eduroam federation, a second zone for visitors,
-and DHCP/DNS, on top of this fabric. It is additive: nothing above changed
-behaviour and `./labctl verify` still passes unchanged.
+## More reading
 
-```sh
-# ./labctl up builds campus-identity:1.1.0 and campus-firewall:1.0.0 from
-# labs.toml before it deploys. Building by hand is only for debugging.
-./labctl up
-./labctl verify-identity
-```
-
-See `identity/README.md`. The short version: a staff member and an eduroam
-visitor both authenticate over real EAPOL, the visitor's request is proxied
-realm-by-realm to their home institution, and the visited site never learns
-their username. The two land in different VRFs, and the visitor VRF has a
-default learned from the firewall and no route to campus at all.
-
-## Reconciliation
-
-`reconcile/` joins the four registers that each know a third of the truth
-about an endpoint — the fabric's type-2 table, the NAC's sessions, DDI's
-leases and the firewall's address-keyed mappings — and reports where they
-disagree. Read-only.
-
-```sh
-./labctl reconcile
-```
-
-To publish to, and reconcile against, a PAN-OS XML API such as [panos-emu-public](https://github.com/grafman56/panos-emu-public) instead of the nftables stand-in, add `--panos URL` to `./labctl publish` and `./labctl reconcile`. It is optional. See `reconcile/README.md`.
-
-### Guided demo
-
-`./demo.sh [PANOS_URL]` walks one user through fabric, NAC, DDI and firewall, with changes and break/fix. It takes about 2.5 minutes, can be rerun, and checks its own results. It needs the lab up (`./labctl up`, `verify`, `verify-identity`) and a PAN-OS XML API on `PANOS_URL`, default `http://127.0.0.1:8080` (clone [panos-emu-public](https://github.com/grafman56/panos-emu-public) and run `python3 panos_emulator.py`).
-
-| Step | What happens | What `reconcile` shows |
-|---|---|---|
-| 1-2 | Stations get addresses. NAC knows `jsmith`, the firewall does not. | `UNPUBLISHED` |
-| 3-4 | `publish` sends the user and the role/segment tags. A firewall rule that allows ssh from `role:staff` starts to match. | clean |
-| 5-6 | Change: NAC moves `jsmith` to the visitor VLAN, then back. | `WRONG_SEGMENT`, then clean |
-| 7-8 | Break: the wired laptop logs off. Fix: `publish --expire`. The rule stops matching that address. | `STALE_PUBLICATION`, then clean |
-| 9-10 | Break: someone adds a wrong role tag on the firewall. Fix: `publish`. | `WRONG_TAG`, then clean |
-| 11 | Restore and publish. | no `CRITICAL` |
-
-The visitor has no DHCP lease in this lab, so two `NO_ADDRESS` warnings stay on screen throughout. That is a known gap, not a failure. The demo shortens the bridges' MAC ageing to 30 s so step 6 takes about a minute instead of five.
-
-The short version of why it exists: the fabric and the NAC are keyed on MAC,
-the firewall is keyed on IP, and only the DHCP lease holds the edge between
-them. See `reconcile/README.md`.
-
-## Run it
-
-```bash
-./labctl check     # static validation of the whole repository
-./labctl up
-./labctl verify
-./labctl verify-identity
-./labctl status
-./labctl down
-```
-
-`verify.sh` checks OSPF adjacency counts, seven established EVPN peers on each
-of the eight VTEPs, stretched-L2 reachability, inter-VNI cross-campus
-reachability, and internet reachability. It also checks the default-route order:
-primary border, secondary border, then the far site's primary border.
-
-## Control-plane policy practice
-
-[`POLICY-EXERCISES.md`](POLICY-EXERCISES.md) is the quick-deploy guide for
-prefix-lists, route-maps, local preference, communities, and controlled
-BGP-to-OSPF redistribution. It changes policy on the existing nodes only and
-uses `./labctl verify` as the regression check.
-
-## Things to break
-
-- Border failover is asserted by `verify.sh`. To watch the first step by hand,
-  shut `bdr-a`'s firewall peer: `docker exec clab-evpn-vxlan-campus-bdr-a vtysh -c "conf t" -c "router bgp 65000 vrf TENANT-A" -c "neighbor 198.51.100.1 shutdown"`.
-- Shut the site link and watch the EVPN mesh partition while each site keeps working internally. There is only one, by design, which is what makes it worth testing.
-- `area 1 stub no-summary` &#8594; `area 1 stub` on `dist-a1`, then re-read `acc-a1`'s table: 1 route becomes many.
-- Shut `spine1a:eth1` and confirm leaf1a holds its EVPN sessions through spine2a.
-
-## Limits
-
-- No EVPN multihoming (type 4 / ESI). Each host is single-attached.
-- No border-gateway separation. The two sites are one flat EVPN domain and one
-  IGP domain, not two domains stitched at a gateway. EVPN multi-site is the
-  realistic next step and would give the sites independent failure domains.
-- Each border pair connects to one firewall and one ISP per site. The lab
-  models border-switch path failover, not firewall or provider redundancy.
-  Containerlab does not model the hardware MC-LAG used by real switch pairs.
-- The buildings do not reach the tenant VRFs or the internet. See above.
-- Veth MTU is the containerlab default of 1500, so VXLAN leaves about 1450 for
-  the payload. Large-packet tests need the MTU raised on the fabric links.
-- The ISP nodes advertise a single loopback each. There is no internet table.
+- [ARCHITECTURE.md](ARCHITECTURE.md): why the lab is built this way
+- [identity/README.md](identity/README.md): 802.1X, the visitor login, DHCP and DNS
+- [reconcile/README.md](reconcile/README.md): the comparison tool
+- [POLICY-EXERCISES.md](POLICY-EXERCISES.md): routing policy exercises
