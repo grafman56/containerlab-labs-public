@@ -65,11 +65,17 @@ vlans:
 
 # Symmetric IRB. Each VRF gets its own transit VNI, the same way a real fabric
 # does. netlab also assigns a local VLAN for each transit VNI.
+#
+# OSPF is off inside the VRFs. netlab would otherwise run it between the leaves
+# over the IRB and redistribute it into the fw BGP session, and the two protocols
+# loop each other's routes.
 vrfs:
   tenant:
     evpn.transit_vni: 4100
+    ospf: false
   guest:
     evpn.transit_vni: 4200
+    ospf: false
 
 groups:
   spines:
@@ -101,7 +107,6 @@ nodes:
     module: [ bgp ]
     bgp.as: 65100
     clab.image: campus-firewall:1.0.0
-    clab.binds: [ fw-zones.nft:/etc/zones.nft:ro ]
   # Hosts. Two in the same segment on different leaves prove stretched L2 and
   # a remote type-2 route. The third is in another VRF and must not reach them.
   h1:

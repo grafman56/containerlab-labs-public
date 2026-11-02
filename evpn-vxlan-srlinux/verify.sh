@@ -21,8 +21,6 @@ for v in "vxlan0.10 .*VNI 1010" "vxlan0.20 .*VNI 1020" "vxlan0.30 .*VNI 1030" "V
 echo "Dataplane"
 check "h1 -> h2 same VLAN, other leaf" ok h1 10.10.10.22
 check "h1 -> h4 VLAN 10 to 20 (IRB)" ok h1 10.20.20.24
-check "h1 -> h3 tenant to guest (fw allows icmp)" ok h1 10.30.30.23
-check "h3 -> h1 guest to tenant (fw drops)" fail h3 10.10.10.21
 
 echo "PAN-OS emulator"
 zones=$(curl -s -G "$API" --data-urlencode type=op --data-urlencode "cmd=<show><interface>all</interface></show>")
@@ -41,6 +39,13 @@ curl -s -X POST --data-urlencode type=commit "$API" >/dev/null; sleep 1
 match() { curl -s -G "$API" --data-urlencode type=op --data-urlencode "cmd=<test><security-policy-match><from>tenant</from><to>guest</to><source>$1</source><destination>10.30.30.23</destination><application>icmp</application></security-policy-match></test>"; }
 has "policy: VNI 1010 host allowed" "$(match 10.10.10.21)" "vni1010-to-guest"
 has "policy: VNI 1020 host denied" "$(match 10.20.20.24)" "interzone-default"
+
+echo "Emulator rulebase -> fw dataplane"
+./sync-fw.py >/dev/null && echo "PASS sync-fw.py" || { echo "FAIL sync-fw.py"; fail=1; }
+check "h1 (vni:1010) -> h3 allowed by rule" ok h1 10.30.30.23
+check "h2 (vni:1010, other leaf) -> h3 allowed by rule" ok h2 10.30.30.23
+check "h4 (vni:1020) -> h3 no matching rule, dropped" fail h4 10.30.30.23
+check "h3 -> h1 guest to tenant, no rule, dropped" fail h3 10.10.10.21
 
 [ $fail = 0 ] && echo "ALL PASS" || echo "FAILURES"
 exit $fail

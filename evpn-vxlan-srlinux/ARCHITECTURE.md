@@ -29,12 +29,30 @@ tests something real. The emulator mirrors `fw` for interfaces and zones.
 The two rulebases are separate and kept in step by hand.
 *Rule: when a tool cannot do the whole job, pair it with a stand-in and say where the seam is.*
 
-## as-override on the firewall
-`l2` is in AS 65000 and peers with `fw` in two VRFs. A prefix from one zone returns
-with 65000 in the path and the leaf drops it as a loop. `as-override` on `fw` is the
-PE-side fix from RFC 4364. `allowas-in` on the leaf also works. A default route
-only would avoid it and show less routing.
-*Rule: loop prevention is a feature. Turn it off in one place, for a known reason.*
+## fw sends each VRF only a default route
+`fw` learns every prefix from both VRFs but advertises only `0.0.0.0/0` back into
+each one. My first version re-advertised each zone's prefixes. `l2` peers with `fw`
+in two VRFs from one AS, so those routes came back with its own ASN in the path
+and were dropped as a loop. `as-override` hid that, but a second loop remained
+(see next section). Default-only avoids both, and it is what a campus edge sends.
+*Rule: a firewall is a routing stub for the fabric. Give it everything, ask for a default.*
+
+## OSPF is off inside the VRFs
+netlab's `ospf` module also runs OSPF in each VRF, between the two leaves over the
+IRB, and redistributes it into the BGP session to `fw`. The two protocols then
+passed the same prefixes back and forth. A traceroute showed the packet bouncing
+between `l1` and `l2`, and `fw` counted zero packets. `ospf: false` on both VRFs
+fixes it. Underlay OSPF in the default VRF is unaffected.
+*Rule: when a tool enables a protocol everywhere, check where you did not mean it.*
+
+## Rules in the emulator drive the data path
+`sync-fw.py` reads the emulator's committed rules, tags and user mappings and
+rewrites one nftables chain on `fw`. A rule on `source-tag vni:1010` becomes the
+set of addresses tagged that way, so a tag change plus a sync moves the policy
+with no prefix in the rule. It also flushes conntrack, so a changed rule applies
+at once. The two rulebases are still two systems: the sync is one way, from
+emulator to `fw`, and runs when you run it.
+*Rule: one source of truth for policy, one explicit step to push it.*
 
 ## Tags carry the VNI
 `publish.py` sends `vlan:`, `vni:` and `vrf:` tags with each login. A rule can then

@@ -43,7 +43,7 @@ interface -> zone**. The firewall never sees a VNI. `publish.py` carries it as a
 ```sh
 cd evpn-vxlan-srlinux
 netlab up                 # deploy and configure
-./post-up.sh              # load fw zones, set host default routes, as-override on fw
+./post-up.sh              # load fw zones, fw default-route-only to the fabric, host default routes
 netlab validate           # OSPF full, EVPN established
 ./verify.sh               # VNIs, pings, fw zones, tags, policy match (needs the emulator)
 
@@ -51,6 +51,7 @@ netlab validate           # OSPF full, EVPN established
 PANOS_LAB_FW=clab-evpn-srlinux-fw PANOS_LAB_HOSTNAME=fw python3 panos_emulator.py
 
 ./publish.py              # login + vlan/vni/vrf tags for h1..h4 -> emulator
+./sync-fw.py              # push the emulator's committed rules into fw's nftables
 netlab down --cleanup
 ```
 
@@ -70,29 +71,35 @@ mapping, edit `vni` in `topology.yml` and run `netlab up` again.
 ## Try it
 
 ```sh
-# fabric: stretched L2, inter-VLAN, then through the firewall
+# fabric: stretched L2 and inter-VLAN
 docker exec clab-evpn-srlinux-h1 ping -c2 10.10.10.22   # same VLAN, other leaf
 docker exec clab-evpn-srlinux-h1 ping -c2 10.20.20.24   # VLAN 10 -> 20, IRB
-docker exec clab-evpn-srlinux-h1 ping -c2 10.30.30.23   # tenant -> guest, via fw: allowed
-docker exec clab-evpn-srlinux-h3 ping -c2 10.10.10.21   # guest -> tenant: dropped by fw
+
+# firewall: default deny until a rule is committed and synced
+docker exec clab-evpn-srlinux-h1 ping -c2 10.30.30.23   # tenant -> guest: dropped
 
 # emulator: a rule that matches the VNI tag, then ask who matches
 # (see panos-emu-public/TRAINING.md for set/commit and security-policy-match)
 ```
 
-Example rule: source zone `tenant`, destination `guest`, `source-tag vni:1010`.
-`h1` (VNI 1010) matches it. `h4` (VNI 1020) hits `interzone-default`.
+Add the rule: source zone `tenant`, destination `guest`, application `icmp`,
+`source-tag vni:1010`, action allow. Commit it, then `./sync-fw.py`. Now `h1` and
+`h2` (VNI 1010) reach `h3`, `h4` (VNI 1020) does not, and `h3` still cannot
+reach back. `./verify.sh` does exactly this and checks each result.
 
 ## Gotchas
 
-- The leaves and `fw` are in different ASNs, but `l2` peers with `fw` in two VRFs
-  from one AS. `fw` re-advertises each zone's prefixes to the other, with 65000 in
-  the path, and the leaf drops them as a loop. `post-up.sh` sets `as-override` on
-  `fw`. `allowas-in` on the leaf also works.
+- `fw` starts with default deny between zones. Nothing crosses until a rule is
+  committed in the emulator and `./sync-fw.py` runs.
+- The sync is one way, emulator to `fw`, and runs when you run it. A rule edited
+  in the emulator does not change `fw` until then. It supports zones, a few
+  applications (icmp, ssh, dns, web-browsing, ssl), `source-tag`, `source-user`.
+- `fw` sends each VRF only a default route. `post-up.sh` sets it.
+- OSPF is off inside the VRFs (`ospf: false`). With it on, netlab loops routes
+  between OSPF and the fw BGP session.
 - Hosts get their default route from `post-up.sh`. netlab leaves it on the mgmt network.
-- The nftables policy and the emulator rulebase are two separate things. A rule
-  added in the emulator does not change what `fw` forwards. Keep them in step by hand.
 - User-ID names come from `HOSTS` in `publish.py`. A NAC would supply them.
+  Logins time out after 45 minutes in the emulator. Run `./publish.py` again.
 - SR Linux `show` syntax changes between releases. `info flat from running` is stable.
 
 ## What this lab does not do
