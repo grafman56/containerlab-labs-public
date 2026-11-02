@@ -6,7 +6,7 @@
 #
 #   ./demo.sh [PANOS_URL]          default http://127.0.0.1:8080
 #
-# It changes the lab and puts it back. Takes about 5 minutes. Safe to rerun.
+# It changes the lab and puts it back. Takes about 3 minutes. Safe to rerun.
 set -uo pipefail
 
 here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
