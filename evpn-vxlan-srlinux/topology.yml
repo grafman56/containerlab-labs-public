@@ -20,11 +20,6 @@ provider: clab
 
 defaults:
   device: srlinux
-  providers:
-    clab:
-      # No lab prefix, so the containers are named l1, l2 and so on, which
-      # makes docker exec and netlab connect read the same.
-      lab_prefix: ""
 
 module: [ vlan, vxlan, ospf, bgp, evpn, vrf ]
 
@@ -84,14 +79,29 @@ groups:
     members: [ l1, l2 ]
 
 nodes:
+  # Spines are plain FRR: underlay and EVPN route reflection only. They never
+  # see a VLAN or a VNI, as on a real fabric. The mapping lives on the leaves.
   s1:
     id: 1
+    device: frr
+    module: [ ospf, bgp, evpn ]
   s2:
     id: 2
+    device: frr
+    module: [ ospf, bgp, evpn ]
   l1:
     id: 11
   l2:
     id: 12
+  # Stand-in data path for the Palo Alto. Its zones are nftables sets, which
+  # the PAN-OS emulator mirrors (see README). One zone per VRF.
+  fw:
+    id: 31
+    device: frr
+    module: [ bgp ]
+    bgp.as: 65100
+    clab.image: campus-firewall:1.0.0
+    clab.binds: [ fw-zones.nft:/etc/zones.nft:ro ]
   # Hosts. Two in the same segment on different leaves prove stretched L2 and
   # a remote type-2 route. The third is in another VRF and must not reach them.
   h1:
@@ -102,6 +112,9 @@ nodes:
     device: linux
   h3:
     id: 23
+    device: linux
+  h4:
+    id: 24
     device: linux
 
 links:
@@ -114,21 +127,33 @@ links:
 
   # Tenant segments. Same VLAN on both leaves, so the same VNI is stretched.
   - l1:
+      vlan.access: staff
     h1:
-      vlan.access: staff
   - l2:
+      vlan.access: staff
     h2:
-      vlan.access: staff
   - l2:
-    h3:
       vlan.access: visitor
+    h3:
+  - l1:
+      vlan.access: services
+    h4:
+
+  # Firewall handoff. One routed link per VRF from the border leaf (l2), eBGP
+  # per VRF. eth1 on fw is zone tenant, eth2 is zone guest.
+  - l2:
+      vrf: tenant
+    fw:
+  - l2:
+      vrf: guest
+    fw:
 
 validate:
   ospf:
     description: Every fabric link is in OSPF full state
     wait: 60
     wait_msg: Waiting for the OSPF underlay
-    nodes: [ s1, s2, l1, l2 ]
+    nodes: [ l1, l2 ]
     devices: [ srlinux ]
     exec: show network-instance default protocols ospf neighbor
     valid: stdout.lower().count('full') >= 2
