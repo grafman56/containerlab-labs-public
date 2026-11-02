@@ -4,7 +4,8 @@
 set -uo pipefail
 cd "$(dirname "$0")"
 P=clab-evpn-srlinux
-API=${PANOS_URL:-http://127.0.0.1:8080}/api
+URL=${PANOS_URL:-http://127.0.0.1:8080}
+API=$URL/api
 fail=0
 check() { # name, expected (ok|fail), host, ip
   docker exec $P-$3 ping -c2 -W2 "$4" >/dev/null 2>&1 && got=ok || got=fail
@@ -33,7 +34,7 @@ zones=$(curl -s -G "$API" --data-urlencode type=op --data-urlencode "cmd=<show><
 has "emulator mirrors zone tenant" "$zones" "<zone>tenant</zone>"
 has "emulator mirrors zone guest" "$zones" "<zone>guest</zone>"
 
-./publish.py >/dev/null && echo "PASS publish.py" || { echo "FAIL publish.py"; fail=1; }
+./publish.py --url "$URL" >/dev/null && echo "PASS publish.py" || { echo "FAIL publish.py"; fail=1; }
 tags=$(curl -s -G "$API" --data-urlencode type=op --data-urlencode "cmd=<show><object><registered-ip><all/></registered-ip></object></show>")
 has "10.10.10.21 tagged vni:1010" "$tags" "vni:1010"
 has "10.30.30.23 tagged vni:1030" "$tags" "vni:1030"
@@ -47,7 +48,7 @@ has "policy: VNI 1010 host allowed" "$(match 10.10.10.21)" "vni1010-to-guest"
 has "policy: VNI 1020 host denied" "$(match 10.20.20.24)" "interzone-default"
 
 echo "Emulator rulebase -> fw dataplane"
-./sync-fw.py >/dev/null && echo "PASS sync-fw.py" || { echo "FAIL sync-fw.py"; fail=1; }
+./sync-fw.py --url "$URL" >/dev/null && echo "PASS sync-fw.py" || { echo "FAIL sync-fw.py"; fail=1; }
 check "h1 (vni:1010) -> h3 allowed by rule" ok h1 10.30.30.23
 check "h2 (vni:1010, other leaf) -> h3 allowed by rule" ok h2 10.30.30.23
 check "h4 (vni:1020) -> h3 no matching rule, dropped" fail h4 10.30.30.23
