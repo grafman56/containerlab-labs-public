@@ -13,7 +13,36 @@ It is small on purpose. It has 2 SR Linux leaves, 2 FRR spines, 1 firewall node 
 4 hosts. It runs on one 8 GB host. It is more than a spreadsheet because packets
 really cross the fabric and the firewall.
 
-Contents: [Topology](#topology) · [Concepts](#concepts-in-this-lab) ·
+## Quick start
+
+You need a Linux host with Docker, Containerlab and netlab (install steps are in
+[Requirements](#requirements)). Then, about 5 minutes:
+
+```sh
+# Once: get both repositories and build the firewall image
+mkdir -p ~/labs && cd ~/labs
+git clone https://github.com/grafman56/containerlab-labs-public.git
+git clone https://github.com/grafman56/panos-emu-public.git
+docker build -t campus-firewall:1.0.0 containerlab-labs-public/evpn-vxlan-campus/firewall
+
+# Terminal 1: the PAN-OS emulator (leave it running)
+cd ~/labs/panos-emu-public
+PANOS_DATA=data/srlinux-lab.json python3 panos_emulator.py
+
+# Terminal 2: the lab
+export PATH=~/netlab-venv/bin:$PATH ANSIBLE_COLLECTIONS_PATH=~/netlab-venv
+cd ~/labs/containerlab-labs-public/evpn-vxlan-srlinux
+netlab up          # about 90 seconds
+./post-up.sh       # required after every netlab up
+./verify.sh        # ends with: ALL PASS
+./demo.sh          # a guided tour, about 2 minutes
+```
+
+If `verify.sh` ends with `ALL PASS`, the fabric, the firewall and the emulator work
+together. Then read [Walkthrough](#walkthrough). To shut down: press Ctrl-C in
+terminal 1, and run `netlab down --cleanup` in terminal 2.
+
+Contents: [Quick start](#quick-start) · [Topology](#topology) · [Concepts](#concepts-in-this-lab) ·
 [Requirements](#requirements) · [Run it](#run-it) · [Look at the mapping](#look-at-the-vlan-to-vni-mapping) ·
 [Walkthrough](#walkthrough) · [The PAN-OS emulator](#the-pan-os-emulator-and-how-it-fits) ·
 [Files](#files) · [Troubleshooting](#troubleshooting) · [Limits](#limits-and-fidelity)
@@ -145,10 +174,11 @@ It does three things that netlab does not: it loads the firewall's zones, it mak
 `fw` send each VRF a default route only, and it points each host's default route at
 its leaf. Without it the hosts cannot leave their subnet.
 
-**3. Start the PAN-OS emulator** in a second terminal. Pick one mode:
+**3. Start the PAN-OS emulator** in a second terminal. Pick one mode. If you have not
+cloned it, see the [Quick start](#quick-start):
 
 ```sh
-cd panos-emu-public
+cd ~/labs/panos-emu-public
 
 # A. Mirror mode. The emulator reads the running fw node. Needs Docker access.
 PANOS_LAB_FW=clab-evpn-srlinux-fw PANOS_LAB_HOSTNAME=fw python3 panos_emulator.py

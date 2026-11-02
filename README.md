@@ -23,6 +23,7 @@ Each lab pins its container images. The FRR labs use FRR 10.7.0.
 | `evpn-vxlan-ospf/` | Same overlay over an OSPF underlay, with an external eBGP edge |
 | `evpn-vxlan-fabric/` | 4 spines, 10 leaves |
 | `evpn-vxlan-campus/` | Two-site campus: NAC, DHCP/DNS, firewall identity publication, read-only reconciliation tool |
+| `evpn-vxlan-srlinux/` | SR Linux leaves and a firewall node. Read the VLAN to VNI mapping on the device, publish it as User-ID tags to the PAN-OS emulator, and make a rule written in the API change real traffic |
 | **Other** | |
 | `enterprise-fabric/` | netlab-managed SR Linux fabric with gNMI telemetry (Telegraf, InfluxDB, Grafana) |
 | `cin-rphy-transport/` | Remote PHY cable transport with a read-only Ansible probe |
@@ -32,7 +33,7 @@ Each lab pins its container images. The FRR labs use FRR 10.7.0.
 
 ## Companion projects
 
-[panos-emu-public](https://github.com/grafman56/panos-emu-public) is a small PAN-OS XML API emulator (stdlib Python, no packets). The campus lab can publish user and role tags to it and reconcile against it, in place of the nftables stand-in. The labs run without it.
+[panos-emu-public](https://github.com/grafman56/panos-emu-public) is a small PAN-OS XML API emulator (stdlib Python, no packets). The campus lab can publish user and role tags to it and reconcile against it, in place of the nftables stand-in. The `evpn-vxlan-srlinux` lab is built around it. The other labs run without it.
 
 ## Run a lab
 
