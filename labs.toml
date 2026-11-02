@@ -180,8 +180,8 @@ topology = "topology.yml"
 driver = "netlab"
 summary = "SR Linux leaves, FRR spines, fw handoff per VRF, PAN-OS emulator User-ID tags from the VLAN to VNI binding"
 mgmt_subnet = "172.21.20.0/24"
-# `netlab validate` runs the inline checks in topology.yml. There is no
-# separate validation file to list here.
-verify = []
+# `netlab validate` runs the inline fabric checks. verify.sh also checks the
+# dataplane, the firewall and the emulator.
+verify = ["verify.sh"]
 # Two SR Linux leaves, three FRR nodes and four hosts. Run ./post-up.sh after netlab up.
 min_free_memory_mb = 6144

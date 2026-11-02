@@ -45,6 +45,7 @@ cd evpn-vxlan-srlinux
 netlab up                 # deploy and configure
 ./post-up.sh              # load fw zones, set host default routes, as-override on fw
 netlab validate           # OSPF full, EVPN established
+./verify.sh               # VNIs, pings, fw zones, tags, policy match (needs the emulator)
 
 # in panos-emu-public (separate terminal):
 PANOS_LAB_FW=clab-evpn-srlinux-fw PANOS_LAB_HOSTNAME=fw python3 panos_emulator.py
