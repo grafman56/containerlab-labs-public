@@ -178,10 +178,10 @@ min_free_memory_mb = 4096
 dir = "evpn-vxlan-srlinux"
 topology = "topology.yml"
 driver = "netlab"
-summary = "Four-node SR Linux EVPN-VXLAN fabric, three segments, explicit VLAN to VNI binding in the committed config"
+summary = "SR Linux leaves, FRR spines, fw handoff per VRF, PAN-OS emulator User-ID tags from the VLAN to VNI binding"
 mgmt_subnet = "172.21.20.0/24"
 # `netlab validate` runs the inline checks in topology.yml. There is no
 # separate validation file to list here.
 verify = []
-# Four network-OS nodes plus three Linux hosts, so this refuses a 3 GB host.
+# Two SR Linux leaves, three FRR nodes and four hosts. Run ./post-up.sh after netlab up.
 min_free_memory_mb = 6144

@@ -1,0 +1,16 @@
+#!/usr/sbin/nft -f
+# Zone policy for fw. Stand-in data path for the Palo Alto.
+# eth1 = zone tenant (VRF tenant), eth2 = zone guest (VRF guest).
+# Set names must be <zone>_ifaces: the PAN-OS emulator reads them as zones.
+flush ruleset
+table inet zones {
+    set tenant_ifaces { type ifname; elements = { "eth1" } }
+    set guest_ifaces  { type ifname; elements = { "eth2" } }
+    chain forward {
+        type filter hook forward priority filter; policy drop;
+        ct state established,related accept
+        ct state invalid drop
+        # tenant may ping guest; nothing else crosses a zone.
+        iifname @tenant_ifaces oifname @guest_ifaces icmp type echo-request accept
+    }
+}
