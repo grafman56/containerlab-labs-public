@@ -2,6 +2,10 @@
 
 Portable Containerlab and netlab exercises for enterprise routing and modern data-center fabrics.
 
+This repository is the network estate. Industrial control labs, including the
+Modbus and PLC work that used to live here, are in
+Industrial-Controls.
+
 ## Requirements
 
 - Native Linux or WSL2 with Docker access
@@ -28,7 +32,6 @@ Each lab pins its container images. The FRR labs use FRR 10.7.0.
 | `enterprise-fabric/` | netlab-managed SR Linux fabric with gNMI telemetry (Telegraf, InfluxDB, Grafana) |
 | `cin-rphy-transport/` | Remote PHY cable transport with a read-only Ansible probe |
 | `wireless-radius-8021x/` | Virtual Wi-Fi AP and supplicant with FreeRADIUS (WPA2-Enterprise) |
-| `modbus-tcp/` | Modbus simulator, OpenPLC Runtime, PLC-controlled tank process |
 | `docsis-pnm-poc/` | Runner for a locally built CableLabs ns-3 DOCSIS image |
 
 ## Companion projects
