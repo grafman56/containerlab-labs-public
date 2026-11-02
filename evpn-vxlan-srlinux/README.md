@@ -20,6 +20,7 @@ You need a Linux host with Docker, Containerlab and netlab (install steps are in
 
 ```sh
 # Once: get both repositories and build the firewall image
+# (HTTP, so no SSH key is needed)
 mkdir -p ~/labs && cd ~/labs
 git clone https://github.com/grafman56/containerlab-labs-public.git
 git clone https://github.com/grafman56/panos-emu-public.git
