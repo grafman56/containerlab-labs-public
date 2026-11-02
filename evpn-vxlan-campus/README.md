@@ -203,11 +203,11 @@ disagree. Read-only.
 ./labctl reconcile
 ```
 
-To publish to, and reconcile against, a PAN-OS XML API such as the `panos-emulator` lab instead of the nftables stand-in, add `--panos URL` to `./labctl publish` and `./labctl reconcile`. It is optional. See `reconcile/README.md`.
+To publish to, and reconcile against, a PAN-OS XML API such as [panos-emu-public](https://github.com/grafman56/panos-emu-public) instead of the nftables stand-in, add `--panos URL` to `./labctl publish` and `./labctl reconcile`. It is optional. See `reconcile/README.md`.
 
 ### Guided demo
 
-`./demo.sh [PANOS_URL]` walks one user through fabric, NAC, DDI and firewall, with changes and break/fix. It takes about 3 minutes, can be rerun, and checks its own results. It needs the lab up (`./labctl up`, `verify`, `verify-identity`) and a PAN-OS XML API on `PANOS_URL`, default `http://127.0.0.1:8080` (run `python3 panos_emulator.py` from the `panos-emulator` project).
+`./demo.sh [PANOS_URL]` walks one user through fabric, NAC, DDI and firewall, with changes and break/fix. It takes about 3 minutes, can be rerun, and checks its own results. It needs the lab up (`./labctl up`, `verify`, `verify-identity`) and a PAN-OS XML API on `PANOS_URL`, default `http://127.0.0.1:8080` (clone [panos-emu-public](https://github.com/grafman56/panos-emu-public) and run `python3 panos_emulator.py`).
 
 | Step | What happens | What `reconcile` shows |
 |---|---|---|

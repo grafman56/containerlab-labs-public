@@ -281,10 +281,10 @@ path before concluding anything about policy.
 ## Optional: send the same publication to a PAN-OS API
 
 `publish.py` can also send each login and tag to a PAN-OS XML API: the
-`panos-emulator` lab (a separate project), or a real firewall. It is off by default. Without the flag, nothing changes and the nftables firewall is the only target.
+`panos-emu-public` lab (a separate project), or a real firewall. It is off by default. Without the flag, nothing changes and the nftables firewall is the only target.
 
 ```sh
-# in the panos-emulator project
+# in the panos-emu-public project
 python3 panos_emulator.py                      # listens on :8080
 
 # here
@@ -335,7 +335,7 @@ Useful alerts: `STALE_PUBLICATION > 0` (a session ended without an Accounting-St
 ### Known gaps in the PAN-OS leg
 
 - A visitor holds a static address in this lab and gets no DHCP lease, so it has no IP to publish. The anonymous-visitor path (tags, no user) is covered by the self-check and a fake-register run, not by the live lab.
-- The emulator matches a rule on `source-user` and `source-tag`, but a real PAN-OS matches on address objects and dynamic address groups. Re-check that on a real firewall, see the checklist in the `panos-emulator` `TRAINING.md`.
+- The emulator matches a rule on `source-user` and `source-tag`, but a real PAN-OS matches on address objects and dynamic address groups. Re-check that on a real firewall, see the checklist in the `panos-emu-public` `TRAINING.md`.
 - `LEASE_REASSIGNED` cannot fire against the PAN-OS register, and publication latency is not reported (see above).
 
 ## What the firewall register is, and is not

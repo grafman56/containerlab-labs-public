@@ -30,6 +30,10 @@ Each lab pins its container images. The FRR labs use FRR 10.7.0.
 | `modbus-tcp/` | Modbus simulator, OpenPLC Runtime, PLC-controlled tank process |
 | `docsis-pnm-poc/` | Runner for a locally built CableLabs ns-3 DOCSIS image |
 
+## Companion projects
+
+[panos-emu-public](https://github.com/grafman56/panos-emu-public) is a small PAN-OS XML API emulator (stdlib Python, no packets). The campus lab can publish user and role tags to it and reconcile against it, in place of the nftables stand-in. The labs run without it.
+
 ## Run a lab
 
 `labs.toml` lists every lab. `./labctl` reads it (details in `docs/lifecycle.md`):

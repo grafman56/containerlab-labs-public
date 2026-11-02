@@ -1,6 +1,6 @@
 """Minimal PAN-OS User-ID client, standard library only.
 
-Talks to a firewall's XML API, or to the panos-emulator lab. Only the four
+Talks to a firewall's XML API, or to the panos-emu-public lab. Only the four
 User-ID verbs and the two read commands that a NAC-to-firewall integration
 needs. The builders and parsers are pure so the self-check runs without a
 firewall.

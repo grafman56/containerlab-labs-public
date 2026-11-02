@@ -12,7 +12,7 @@ is still printed as 0, so an alert can see it clear. If the PAN-OS API cannot
 be reached, the output says campus_reconcile_up 0 instead of failing.
 
 --panos URL reads the firewall register from a PAN-OS XML API (the
-panos-emulator lab, or a firewall) instead of nftables. PANOS_KEY, if set, is
+panos-emu-public lab, or a firewall) instead of nftables. PANOS_KEY, if set, is
 the API key. Without it, nothing changes.
 
 Nothing here writes to a lab node. Publication is reconcile/publish.py.

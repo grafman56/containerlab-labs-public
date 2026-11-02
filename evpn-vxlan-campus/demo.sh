@@ -2,7 +2,7 @@
 # Guided demo: fabric -> NAC -> DDI -> firewall, with changes and break/fix.
 #
 # Needs the lab up (./labctl up, verify, verify-identity) and a PAN-OS XML API
-# to publish to. The panos-emulator project is one (python3 panos_emulator.py).
+# to publish to. The panos-emu-public project is one (python3 panos_emulator.py).
 #
 #   ./demo.sh [PANOS_URL]          default http://127.0.0.1:8080
 #

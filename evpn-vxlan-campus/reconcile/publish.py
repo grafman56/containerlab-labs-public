@@ -18,7 +18,7 @@ reconcile.py afterwards and the stale entry is sitting there.
             between the two runs is visible rather than described.
   --flush   drop the whole table, to start a walk-through clean.
   --panos URL  also send each login and tag to a PAN-OS XML API (the
-            panos-emulator lab, or a firewall). Optional: without it nothing
+            panos-emu-public lab, or a firewall). Optional: without it nothing
             here changes and the nftables firewall is the only target. Set
             PANOS_KEY if the API needs a key. --expire and --flush apply to it too.
   --panos-timeout MIN  login mapping timeout in minutes (default: the
