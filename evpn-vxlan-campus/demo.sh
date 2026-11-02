@@ -2,7 +2,7 @@
 # Guided demo: fabric -> NAC -> DDI -> firewall, with changes and break/fix.
 #
 # Needs the lab up (./labctl up, verify, verify-identity) and a PAN-OS XML API
-# to publish to. The panos-emu-public project is one (python3 panos_emulator.py).
+# to publish to. The panos-emu-public project is one. Start it with PANOS_LAB_FW=clab-evpn-vxlan-campus-fw-a PANOS_LAB_HOSTNAME=fw-a python3 panos_emulator.py
 #
 #   ./demo.sh [PANOS_URL]          default http://127.0.0.1:8080
 #
@@ -60,17 +60,17 @@ cleanup() { # always leave the lab as found
 }
 trap cleanup EXIT
 
-# The firewall rule the whole demo is about: staff may ssh to the data centre.
+# The firewall rule the whole demo is about: staff may ssh out to the internet.
 # It names no address. Who is "staff" is whatever User-ID last told the firewall.
 setup_rule() {
   curl -s -G "$url/api" --data-urlencode type=config --data-urlencode action=set \
     --data-urlencode "xpath=security/rules/entry[@name='staff-ssh']" --data-urlencode \
-    'element=<entry name="staff-ssh"><source>any</source><destination>any</destination><application>ssh</application><source-tag><member>role:staff</member></source-tag><action>allow</action></entry>' >/dev/null
+    'element=<entry name="staff-ssh"><source>campus</source><destination>internet</destination><application>ssh</application><source-tag><member>role:staff</member></source-tag><action>allow</action></entry>' >/dev/null
 }
 policy() { # policy <ip> allow|deny : what the firewall would do with ssh from that address
   local got
   got=$(curl -s -G "$url/api" --data-urlencode type=op --data-urlencode \
-    "cmd=<test><security-policy-match><from>trust</from><to>dc</to><source>$1</source><application>ssh</application></security-policy-match></test>" \
+    "cmd=<test><security-policy-match><from>campus</from><to>internet</to><source>$1</source><application>ssh</application></security-policy-match></test>" \
     | grep -o '<action>[a-z]*' | head -1 | cut -c9-)
   if [ "$got" = "$2" ]; then say "ok: ssh from $1 -> $got"; else say "FAIL: ssh from $1 is '$got', expected $2"; fails=$((fails + 1)); fi
 }

@@ -17,7 +17,8 @@ You can use it to:
 - watch a user log in, get an address, and get a firewall rule applied
 - test automation against the same network that a script would see in production
 
-The routers run FRRouting. The firewall is a PAN-OS XML API emulator (see
+The routers run FRRouting. Each site firewall is an FRR node with nftables, and
+a PAN-OS XML API emulator sits beside it and mirrors it (see
 [the demo](#the-demo)). No packet from this lab goes to a real firewall.
 
 ## What you need
@@ -60,10 +61,11 @@ In the second terminal, start the firewall emulator. It needs only `python3`:
 ```sh
 git clone https://github.com/grafman56/panos-emu-public
 cd panos-emu-public
-python3 panos_emulator.py
+PANOS_LAB_FW=clab-evpn-vxlan-campus-fw-a PANOS_LAB_HOSTNAME=fw-a python3 panos_emulator.py
 ```
 
-Leave it running. Back in the first terminal, run the demo:
+`PANOS_LAB_FW` makes the emulator copy the real lab firewall: its interfaces,
+zones, routes and BGP sessions. Leave it running. Back in the first terminal, run the demo:
 
 ```sh
 ./demo.sh
@@ -162,6 +164,21 @@ lease in this lab. This is known and is not a failure.
 The demo shortens the MAC ageing time on the bridges to 30 seconds, so step 6
 takes about one minute instead of five.
 
+The demo uses the real zones of `fw-a`: `campus`, `guest` and `internet`. Try
+these against the emulator while the lab runs:
+
+```sh
+curl -s -G http://127.0.0.1:8080/api --data-urlencode type=op \
+  --data-urlencode 'cmd=<show><routing><protocol><bgp><peer/></bgp></protocol></routing></show>'
+```
+
+Then shut a session on `fw-a` and run it again. The peer changes to `Idle`:
+
+```sh
+docker exec clab-evpn-vxlan-campus-fw-a vtysh -c "conf t" -c "router bgp 65301" -c "neighbor 198.51.100.5 shutdown"
+docker exec clab-evpn-vxlan-campus-fw-a vtysh -c "conf t" -c "router bgp 65301" -c "no neighbor 198.51.100.5 shutdown"
+```
+
 Why four systems? The fabric and the NAC know devices by MAC address. The
 firewall knows them by IP address. Only the DHCP lease links the two.
 [reconcile/README.md](reconcile/README.md) has the details, and
@@ -245,7 +262,11 @@ took more than 15 seconds after the last flap.
 - The link MTU is 1500, so VXLAN leaves about 1450 for payload. Raise the MTU
   on the fabric links before you test large packets.
 - Each ISP node advertises one loopback. There is no internet routing table.
-- The firewall nodes are FRR with nftables. They are not PAN-OS.
+- The firewall nodes are FRR with nftables. They are not PAN-OS. The emulator
+  shows their interfaces, zones, routes, BGP sessions and session count in
+  PAN-OS format, so `show` commands match the lab. It cannot change them: a
+  BGP change sent to the API does not reach FRR, and the rulebase is separate
+  from the nftables rules.
 
 ## More reading
 
