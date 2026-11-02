@@ -1,6 +1,13 @@
 # Two-Site Campus: EVPN-VXLAN Fabric, Non-Fabric Buildings, Dual Internet Edge
 
-> **Note: the VLAN-to-VNI mapping is not an FRR setting.** FRR (`vtysh`) has no VLAN-to-VNI command. It only reads the VNIs that exist in the Linux kernel. The setup scripts in `scripts/` build that mapping into each node (bridge plus VXLAN device, one per VNI, untagged host ports). To change it, edit those scripts, not `configs/*.conf`. See [The Linux VXLAN dataplane](https://docs.frrouting.org/en/latest/evpn.html#the-linux-vxlan-dataplane).
+> **Note: the VLAN-to-VNI mapping is not an FRR setting.** FRR has no VLAN
+> object. It reads the VNIs that exist in the Linux kernel and advertises them.
+> The scripts in `scripts/` build that mapping into each node as one bridge plus
+> one VXLAN device per VNI, with untagged host ports, so no VLAN number reaches
+> the dataplane and `show evpn vni` has nothing useful to put in its VLAN
+> column. Run `./labctl show vlan-vni [NODE|all]` to see what a node really
+> holds. `DATAPLANE.md` explains why, and what changes to keep the binding in
+> the kernel where you can read it.
 
 Two site fabrics joined by one point-to-point link, one tenant stretched across
 both, a border-leaf pair at each site, and a non-fabric building hanging off
@@ -23,6 +30,7 @@ cd evpn-vxlan-campus
 ./labctl up                # about 25 s, longer on the first run while images build
 ./labctl verify            # about 2.5 min: OSPF, EVPN, failover, then the identity edge
 ./labctl verify-identity   # about 80 s: 802.1X for staff and a roaming visitor
+./labctl show vlan-vni     # kernel and zebra view of the VXLAN dataplane
 ```
 
 `verify` waits for OSPF and EVPN to converge, so it is safe to run straight after

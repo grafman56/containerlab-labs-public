@@ -11,7 +11,22 @@ here=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 repo=$(cd -- "$here/.." && pwd)
 
 usage() {
-  printf 'Usage: %s {check|up|verify|verify-identity|wireless|reconcile|publish|whereis|status|down}\n' "$0" >&2
+  printf 'Usage: %s {check|up|verify|verify-identity|wireless|reconcile|publish|whereis|show vlan-vni [NODE|all]|status|down}\n' "$0" >&2
+}
+
+show_vlan_vni() {
+  # Prints the kernel and zebra view of the VXLAN dataplane. Read-only, and it
+  # runs from inside the node, so it needs no image and no tooling on the host.
+  local lab=evpn-vxlan-campus
+  local want=${1:-leaf1a} node
+  local nodes=(leaf1a leaf2a leaf1b leaf2b bdr-a bdr-a2 bdr-b bdr-b2)
+  [ "$want" = all ] || nodes=("$want")
+  for node in "${nodes[@]}"; do
+    docker exec -i "clab-${lab}-${node}" bash -s \
+      < "$here/scripts/show-vxlan.sh" \
+      || printf '%s: docker exec failed for clab-%s-%s\n' "$0" "$lab" "$node" >&2
+    echo
+  done
 }
 
 case "${1:-}" in
@@ -36,6 +51,12 @@ case "${1:-}" in
     ;;
   whereis)
     ( cd "$here/reconcile" && exec python3 whereis.py "${@:2}" )
+    ;;
+  show)
+    case "${2:-}" in
+      vlan-vni) show_vlan_vni "${3:-}" ;;
+      *) usage; exit 2 ;;
+    esac
     ;;
   wireless)
     exec "$here/identity/wireless-attach.sh"
