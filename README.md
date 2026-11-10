@@ -28,6 +28,7 @@ Each lab pins its container images. The FRR labs use FRR 10.7.0.
 | `evpn-vxlan-fabric/` | 4 spines, 10 leaves |
 | `evpn-vxlan-campus/` | Two-site campus: NAC, DHCP/DNS, firewall identity publication, read-only reconciliation tool |
 | `evpn-vxlan-srlinux/` | SR Linux leaves and a firewall node. Read the VLAN to VNI mapping on the device, publish it as User-ID tags to the PAN-OS emulator, and make a rule written in the API change real traffic |
+| `evpn-esi-srlinux/` | EVPN multihoming on SR Linux. A host bonded to two leaves with LACP, one all-active Ethernet Segment, no MLAG peer link. Link-failure tests included |
 | **Other** | |
 | `enterprise-fabric/` | netlab-managed SR Linux fabric with gNMI telemetry (Telegraf, InfluxDB, Grafana) |
 | `cin-rphy-transport/` | Remote PHY cable transport with a read-only Ansible probe |

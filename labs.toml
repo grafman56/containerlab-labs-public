@@ -172,3 +172,16 @@ mgmt_subnet = "172.21.20.0/24"
 verify = ["verify.sh"]
 # Two SR Linux leaves, three FRR nodes and four hosts. Run ./post-up.sh after netlab up.
 min_free_memory_mb = 6144
+
+[labs.evpn-esi-srlinux]
+dir = "evpn-esi-srlinux"
+topology = "topology.yml"
+driver = "netlab"
+summary = "EVPN multihoming on SR Linux: a host bonded to two leaves with LACP, one all-active Ethernet Segment, no MLAG peer link"
+mgmt_subnet = "172.22.20.0/24"
+# `netlab validate` runs the inline OSPF and EVPN checks. verify.sh also checks
+# LACP, the Ethernet Segment, the type 1 and 4 routes, and both link failures.
+verify = ["verify.sh"]
+# Two SR Linux leaves, two FRR spines and three hosts. Measured at about 4 GB used.
+# Run ./post-up.sh after netlab up.
+min_free_memory_mb = 4096

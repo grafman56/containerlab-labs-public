@@ -1,0 +1,128 @@
+---
+# EVPN multihoming (ESI-LAG) on Nokia SR Linux.
+#
+# Two SR Linux leaves share one Ethernet Segment. A Linux host (h3) bonds two
+# links, one to each leaf, with LACP. There is no MLAG peer link: the leaves
+# coordinate through EVPN route types 1 and 4 over the spines.
+#
+# netlab builds the fabric (underlay, EVPN, VLAN to VNI). ./post-up.sh adds the
+# LAG and the Ethernet Segment, because netlab has no ESI support for SR Linux.
+#
+#   netlab up
+#   ./post-up.sh
+#   ./verify.sh
+#   netlab down --cleanup
+name: evpn-esi
+
+provider: clab
+
+defaults:
+  device: srlinux
+
+module: [ vlan, vxlan, ospf, bgp, evpn ]
+
+addressing:
+  loopback:
+    ipv4: 10.255.0.0/24
+  router_id:
+    ipv4: 10.255.0.0/24
+  p2p:
+    ipv4: 10.0.0.0/24
+    prefix: 31
+  mgmt:
+    # Own range and bridge, so this lab can coexist with the other SR Linux labs.
+    ipv4: 172.22.20.0/24
+    start: 100
+    _network: netlab_evpn_esi
+
+bgp:
+  as: 65000
+
+ospf:
+  area: 0.0.0.0
+
+# One stretched Layer 2 segment. Bridge mode: no gateway, no VRF. ESI is a
+# Layer 2 feature, so the lab keeps Layer 3 out of the way.
+vlans:
+  staff:
+    id: 10
+    vni: 1010
+    mode: bridge
+    prefix: 10.10.10.0/24
+
+groups:
+  spines:
+    members: [ s1, s2 ]
+    bgp.rr: true
+  leaves:
+    members: [ l1, l2 ]
+
+nodes:
+  # Spines are plain FRR: OSPF underlay and EVPN route reflection. They never
+  # see a VLAN, a VNI or an Ethernet Segment.
+  s1:
+    id: 1
+    device: frr
+    module: [ ospf, bgp, evpn ]
+  s2:
+    id: 2
+    device: frr
+    module: [ ospf, bgp, evpn ]
+  l1:
+    id: 11
+  l2:
+    id: 12
+  # h1 and h2 are single-homed. h3 is dual-homed with a bond.
+  h1:
+    id: 21
+    device: linux
+  h2:
+    id: 22
+    device: linux
+  h3:
+    id: 23
+    device: linux
+
+links:
+  # Underlay. OSPF area 0 on every fabric link.
+  - s1-l1
+  - s1-l2
+  - s2-l1
+  - s2-l2
+
+  # Single-homed hosts, same VLAN on different leaves.
+  - l1:
+      vlan.access: staff
+    h1:
+  - l2:
+      vlan.access: staff
+    h2:
+
+  # The dual-homed host. netlab only creates the cables here. They land on
+  # ethernet-1/4 of each leaf, the next free port after the underlay and the
+  # single-homed host. post-up.sh builds the LAG on those ports and the bond
+  # on h3. Do not add links above this point without updating post-up.sh.
+  - l1:
+    h3:
+    prefix: false
+  - l2:
+    h3:
+    prefix: false
+
+validate:
+  ospf:
+    description: Every leaf has two OSPF neighbors, one per spine
+    wait: 60
+    wait_msg: Waiting for the OSPF underlay
+    nodes: [ l1, l2 ]
+    devices: [ srlinux ]
+    exec: show network-instance default protocols ospf neighbor
+    valid: stdout.lower().count('full') >= 2
+  evpn:
+    description: Both leaves have an EVPN session to both route reflectors
+    wait: 60
+    wait_msg: Waiting for the EVPN overlay
+    nodes: [ l1, l2 ]
+    devices: [ srlinux ]
+    exec: show network-instance default protocols bgp neighbor
+    valid: stdout.lower().count('established') >= 2
