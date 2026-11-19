@@ -1,0 +1,77 @@
+#jinja2: lstrip_blocks: True
+{% set r = item.value %}
+frr defaults traditional
+hostname {{ item.key }}
+service integrated-vtysh-config
+log stdout
+!
+interface lo
+ ip address {{ r.lo }}/32
+ ip router isis CORE
+ isis passive
+exit
+!
+{% for i in r.core %}
+interface {{ i.if }}
+ ip address {{ i.ip }}
+ ip router isis CORE
+ isis network point-to-point
+exit
+!
+{% endfor %}
+{% for v in r.vrfs | default([]) %}
+interface {{ v.if }} vrf {{ v.name }}
+ ip address {{ v.ip }}
+exit
+!
+{% endfor %}
+router isis CORE
+ net {{ r.net }}
+ is-type level-2-only
+ metric-style wide
+ log-adjacency-changes
+exit
+!
+mpls ldp
+ router-id {{ r.lo }}
+ address-family ipv4
+  discovery transport-address {{ r.lo }}
+{% for i in r.core %}
+  interface {{ i.if }}
+  exit
+{% endfor %}
+ exit-address-family
+exit
+!
+{% if r.role == 'pe' %}
+router bgp 65000
+ bgp router-id {{ r.lo }}
+ no bgp default ipv4-unicast
+ no bgp ebgp-requires-policy
+ neighbor {{ r.peer.ip }} remote-as 65000
+ neighbor {{ r.peer.ip }} description {{ r.peer.name }}
+ neighbor {{ r.peer.ip }} update-source lo
+ address-family ipv4 vpn
+  neighbor {{ r.peer.ip }} activate
+ exit-address-family
+exit
+!
+{% for v in r.vrfs %}
+router bgp 65000 vrf {{ v.name }}
+ bgp router-id {{ r.lo }}
+ no bgp default ipv4-unicast
+ no bgp ebgp-requires-policy
+ neighbor {{ v.ce_ip }} remote-as {{ v.ce_as }}
+ neighbor {{ v.ce_ip }} description {{ v.ce_name }}
+ address-family ipv4 unicast
+  neighbor {{ v.ce_ip }} activate
+  label vpn export auto
+  rd vpn export {{ v.rd }}
+  rt vpn both {{ v.rd }}
+  export vpn
+  import vpn
+ exit-address-family
+exit
+!
+{% endfor %}
+{% endif %}

@@ -1,0 +1,40 @@
+# Source of truth for the four core routers. One entry per router.
+# The template turns each entry into configs/<name>.conf.
+# CE configs stay hand-written: they are customer-side stand-ins.
+routers:
+  pe1:
+    role: pe
+    lo: 10.0.0.1
+    net: "49.0001.0000.0000.0001.00"
+    core:
+      - { if: eth1, ip: 10.1.1.1/30 }
+      - { if: eth2, ip: 10.1.2.1/30 }
+    peer: { ip: 10.0.0.2, name: pe2 }
+    vrfs:
+      - { name: CUST-A, if: eth3, ip: 10.255.1.1/30, rd: "65000:100", ce_ip: 10.255.1.2, ce_as: 65101, ce_name: ce1a }
+      - { name: CUST-B, if: eth4, ip: 10.255.1.1/30, rd: "65000:200", ce_ip: 10.255.1.2, ce_as: 65201, ce_name: ce1b }
+  pe2:
+    role: pe
+    lo: 10.0.0.2
+    net: "49.0001.0000.0000.0002.00"
+    core:
+      - { if: eth1, ip: 10.1.3.2/30 }
+      - { if: eth2, ip: 10.1.4.2/30 }
+    peer: { ip: 10.0.0.1, name: pe1 }
+    vrfs:
+      - { name: CUST-A, if: eth3, ip: 10.255.2.1/30, rd: "65000:100", ce_ip: 10.255.2.2, ce_as: 65102, ce_name: ce2a }
+      - { name: CUST-B, if: eth4, ip: 10.255.2.1/30, rd: "65000:200", ce_ip: 10.255.2.2, ce_as: 65202, ce_name: ce2b }
+  p1:
+    role: p
+    lo: 10.0.0.11
+    net: "49.0001.0000.0000.0011.00"
+    core:
+      - { if: eth1, ip: 10.1.1.2/30 }
+      - { if: eth2, ip: 10.1.3.1/30 }
+  p2:
+    role: p
+    lo: 10.0.0.12
+    net: "49.0001.0000.0000.0012.00"
+    core:
+      - { if: eth1, ip: 10.1.2.2/30 }
+      - { if: eth2, ip: 10.1.4.1/30 }
