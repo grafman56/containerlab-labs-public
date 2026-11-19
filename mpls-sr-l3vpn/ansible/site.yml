@@ -1,0 +1,34 @@
+---
+# Render the core configs from core.yml, then check the running lab.
+# Same flow as ../../mpls-l3vpn/ansible/site.yml. The template is shared: a router
+# with a `sid` in core.yml gets SR-MPLS over IS-IS and no LDP.
+#
+#   ansible-playbook site.yml --check --diff   # drift only: shows what would change
+#   ansible-playbook site.yml                  # write configs/, then verify the lab
+#   ansible-playbook site.yml --tags render    # write configs/ only
+#   ansible-playbook site.yml --tags verify    # verify only
+#
+# Writing configs/ does not change a running lab. Redeploy to load them.
+- name: MPLS L3VPN over SR-MPLS core configs
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars_files: [core.yml]
+  tasks:
+    - name: Render core router configs
+      tags: render
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../../mpls-l3vpn/ansible/core.conf.j2"
+        dest: "{{ playbook_dir }}/../configs/{{ item.key }}.conf"
+        mode: "0644"
+      loop: "{{ routers | dict2items }}"
+      loop_control:
+        label: "{{ item.key }}"
+
+    - name: Verify the running lab (IS-IS, SR, VPNv4, isolation, data plane)
+      tags: verify
+      ansible.builtin.command: ./verify.sh
+      args:
+        chdir: "{{ playbook_dir }}/.."
+      changed_when: false
+      when: not ansible_check_mode

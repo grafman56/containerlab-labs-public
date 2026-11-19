@@ -94,7 +94,8 @@ To change the network, edit `core.yml`, run the playbook, and redeploy the lab.
 
 - **FRR in containers is software.** There is no ASIC, so timers and
   convergence times are not hardware numbers.
-- **LDP, not segment routing.** The core does not run SR-MPLS or SRv6.
+- **LDP, not segment routing.** This lab does not run SR. See
+  [`mpls-sr-l3vpn`](../mpls-sr-l3vpn/README.md) for the SR-MPLS variant. SRv6 is not covered.
 - **The playbook does not change a running lab.** It writes config files. A
   redeploy loads them, because the kernel VRFs are created at container start.
 - **Customer routers are stand-ins.** Their configs are hand-written.

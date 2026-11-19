@@ -1,0 +1,64 @@
+name: mpls-sr-l3vpn
+
+# 172.100.123.0/24 is unused by every other lab (see labs.toml).
+mgmt:
+  network: clab-mpls-sr-l3vpn
+  ipv4-subnet: 172.100.123.0/24
+  ipv6-subnet: 3fff:172:100:123::/64
+
+topology:
+  defaults:
+    kind: linux
+    image: quay.io/frrouting/frr:10.7.0
+
+  nodes:
+    pe1:
+      binds:
+        - configs/daemons-pe:/etc/frr/daemons
+        - configs/pe1.conf:/etc/frr/frr.conf
+        - scripts/mpls-node.sh:/mpls-node.sh:ro
+      cmd: /mpls-node.sh eth1,eth2 CUST-A:eth3:1001 CUST-B:eth4:1002
+    pe2:
+      binds:
+        - configs/daemons-pe:/etc/frr/daemons
+        - configs/pe2.conf:/etc/frr/frr.conf
+        - scripts/mpls-node.sh:/mpls-node.sh:ro
+      cmd: /mpls-node.sh eth1,eth2 CUST-A:eth3:1001 CUST-B:eth4:1002
+    p1:
+      binds:
+        - configs/daemons-p:/etc/frr/daemons
+        - configs/p1.conf:/etc/frr/frr.conf
+        - scripts/mpls-node.sh:/mpls-node.sh:ro
+      cmd: /mpls-node.sh eth1,eth2
+    p2:
+      binds:
+        - configs/daemons-p:/etc/frr/daemons
+        - configs/p2.conf:/etc/frr/frr.conf
+        - scripts/mpls-node.sh:/mpls-node.sh:ro
+      cmd: /mpls-node.sh eth1,eth2
+    ce1a:
+      binds:
+        - configs/daemons-ce:/etc/frr/daemons
+        - configs/ce1a.conf:/etc/frr/frr.conf
+    ce2a:
+      binds:
+        - configs/daemons-ce:/etc/frr/daemons
+        - configs/ce2a.conf:/etc/frr/frr.conf
+    ce1b:
+      binds:
+        - configs/daemons-ce:/etc/frr/daemons
+        - configs/ce1b.conf:/etc/frr/frr.conf
+    ce2b:
+      binds:
+        - configs/daemons-ce:/etc/frr/daemons
+        - configs/ce2b.conf:/etc/frr/frr.conf
+
+  links:
+    - endpoints: ["pe1:eth1", "p1:eth1"]
+    - endpoints: ["pe1:eth2", "p2:eth1"]
+    - endpoints: ["p1:eth2", "pe2:eth1"]
+    - endpoints: ["p2:eth2", "pe2:eth2"]
+    - endpoints: ["pe1:eth3", "ce1a:eth1"]
+    - endpoints: ["pe1:eth4", "ce1b:eth1"]
+    - endpoints: ["pe2:eth3", "ce2a:eth1"]
+    - endpoints: ["pe2:eth4", "ce2b:eth1"]

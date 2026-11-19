@@ -30,8 +30,15 @@ router isis CORE
  is-type level-2-only
  metric-style wide
  log-adjacency-changes
+{% if r.sid is defined %}
+ segment-routing on
+ segment-routing global-block 16000 23999
+ segment-routing node-msd 8
+ segment-routing prefix {{ r.lo }}/32 index {{ r.sid }}
+{% endif %}
 exit
 !
+{% if r.sid is not defined %}
 mpls ldp
  router-id {{ r.lo }}
  address-family ipv4
@@ -43,6 +50,7 @@ mpls ldp
  exit-address-family
 exit
 !
+{% endif %}
 {% if r.role == 'pe' %}
 router bgp 65000
  bgp router-id {{ r.lo }}

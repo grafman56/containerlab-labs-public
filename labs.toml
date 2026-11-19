@@ -83,6 +83,14 @@ mgmt_subnet = "172.100.122.0/24"
 images = ["quay.io/frrouting/frr:10.7.0"]
 verify = ["verify.sh"]
 
+[labs.mpls-sr-l3vpn]
+dir = "mpls-sr-l3vpn"
+topology = "mpls-sr-l3vpn.clab.yml"
+summary = "MPLS L3VPN over SR-MPLS: IS-IS segment routing core with no LDP, same PE/P/CE layout as mpls-l3vpn"
+mgmt_subnet = "172.100.123.0/24"
+images = ["quay.io/frrouting/frr:10.7.0"]
+verify = ["verify.sh"]
+
 
 # ---------------------------------------------------------------------------
 # Campus lab. Two locally built images and a post-deploy radio attach.
