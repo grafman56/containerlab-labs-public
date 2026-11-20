@@ -34,10 +34,22 @@ It has its own name, container prefix and management subnet, so it can run next 
 `mpls-l3vpn`. A flag in one lab would make each check depend on which mode is on.
 *Rule: two clear labs are easier to check than one lab with modes.*
 
-## No SR-TE, no TI-LFA, no SRv6
-Paths follow the IS-IS shortest path. The lab shows SR transport for a VPN and ECMP over
-SR labels. Traffic engineering policy is a separate topic and needs a larger topology to
-show anything.
+## TI-LFA is on, and a drill shows it
+A converged lab with no failure only shows a steady state. TI-LFA gives the lab
+something to break. In this square core, the backup from `p1` to `pe2` must go back
+through `pe1`. `pe1` still has an equal-cost path through `p1`, so a plain IP backup
+could loop. The repair pushes `16012` (the `p2` node SID) on top of `16002`, and that
+stops the loop. `drill.sh` fails that link under customer traffic. It shows that `p1`
+moves to the precomputed path while `pe1` still sends traffic through `p1`.
+
+FRR computes the backup, but Linux has no backup next hop, so zebra installs the
+repair after the failure. The drill shows that the backup is correct and is used at
+once. It does not show 50 ms hardware protection.
+*Rule: add the failure that the design is for, and say what the data plane cannot do.*
+
+## No SR-TE, no SRv6
+Paths follow the IS-IS shortest path. Traffic engineering policy is a separate topic and
+needs a larger topology to show anything.
 *Rule: name what the lab cannot show.*
 
 ## An unexplained first-boot failure is recorded, not hidden

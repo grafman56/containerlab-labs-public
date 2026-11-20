@@ -56,6 +56,34 @@ The checks match `mpls-l3vpn`, with the LDP checks replaced:
 7. The PE VRF route has the stack `16002/<VPN label>`.
 8. The P routers hold no customer routes and forward on labels only.
 9. Both VPNs pass traffic from site 1 to site 2.
+10. TI-LFA: each core router has 0 unprotected IS-IS prefixes, and `p1` has the
+    backup `16012/16002` via `pe1` to reach `pe2`.
+
+## Failure drill
+
+`drill.sh` fails the `p1`-`pe2` link while `ce1a` pings `ce2a` 20 times a second. It
+restores the link at the end, also on Ctrl-C. Run it on the lab host:
+
+```sh
+./drill.sh
+```
+
+Result on 2026-11-20:
+
+| Step | Result |
+|---|---|
+| Before the failure, on `p1` | primary `eth2` to `pe2`; backup `b 10.1.1.1 via eth1, label 16012/16002` |
+| `p1` uses the backup | 0.4 s after link down (the script polls every 0.1 s) |
+| `pe1` stops using `p1` | 10.5 s after link down. Until then, `p1` sends the traffic back through `pe1` and `p2` |
+| Customer A traffic | 300 sent, 300 received, 0% loss |
+
+Look at it by hand from any core router:
+
+```text
+show isis fast-reroute summary    # TI-LFA count, 0 unprotected
+show isis route backup            # every backup path with its repair labels
+show ip route 10.0.0.2/32         # primary (*) and backup (b) next hops
+```
 
 ## Automation
 
@@ -82,8 +110,11 @@ Tested with `ansible-core` 2.20. The playbook writes files only. Redeploy to loa
 ## Limits
 
 - **FRR in containers is software.** Convergence times are not hardware numbers.
-- **SR-MPLS only.** There is no SRv6, no SR-TE policy, no TI-LFA, and no flexible
-  algorithm. Paths follow the IS-IS shortest path.
+- **SR-MPLS only.** There is no SRv6, no SR-TE policy, and no flexible algorithm.
+  Paths follow the IS-IS shortest path.
+- **TI-LFA is computed, not pre-installed.** Linux routes have no backup next hop, so
+  zebra installs the repair after the failure. It shows the correct backup path, not
+  hardware protection time.
 - **No inter-AS or multi-domain SR.**
 - **The playbook does not change a running lab.** It writes config files.
 - **The first-deploy convergence failure above is not explained.**

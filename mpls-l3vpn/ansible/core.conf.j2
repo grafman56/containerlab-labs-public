@@ -16,6 +16,9 @@ interface {{ i.if }}
  ip address {{ i.ip }}
  ip router isis CORE
  isis network point-to-point
+{% if r.sid is defined %}
+ isis fast-reroute ti-lfa
+{% endif %}
 exit
 !
 {% endfor %}

@@ -45,6 +45,20 @@ ecmp=$(v pe1 show ip route 10.0.0.2/32)
 printf '%s\n' "$ecmp"
 [[ $(grep -c 'label 16002' <<<"$ecmp") -ge 2 ]] || fail "pe1 has no two-path SR route to pe2 with label 16002"
 
+echo "TI-LFA: every core router has a precomputed backup for every IS-IS prefix"
+for n in pe1 pe2 p1 p2; do
+  frr=$(v "$n" show isis fast-reroute summary)
+  grep -q 'Topology Independent LFA' <<<"$frr" || fail "$n has no TI-LFA"
+  unprot=$(awk '/^ Unprotected/ {print $NF}' <<<"$frr")
+  [[ $unprot == 0 ]] || fail "$n has $unprot unprotected prefixes"
+done
+echo "ok: 0 unprotected prefixes on pe1, pe2, p1, p2"
+echo "Repair stack: p1's backup to pe2 goes back through pe1, steered by p2's node SID"
+bk=$(v p1 show ip route 10.0.0.2/32)
+grep -q 'b 10.1.1.1, via eth1, label 16012/16002' <<<"$bk" ||
+  fail "p1 has no 16012/16002 backup to pe2 via pe1"
+echo "ok: p1 backup to pe2 = push 16012/16002 via pe1"
+
 echo "Customer routes cross the core"
 wait_for "ce1a learns 10.10.2.0/24" has_route ce1a '10.10.2.0/24'
 wait_for "ce1b learns 10.10.2.0/24" has_route ce1b '10.10.2.0/24'
@@ -78,4 +92,4 @@ x ce1a ping -c 2 -W 2 -I 10.10.1.1 10.10.2.1 >/dev/null || fail "A site1 -> site
 x ce1b ping -c 2 -W 2 -I 10.10.1.1 10.10.2.1 >/dev/null || fail "B site1 -> site2 ping"
 echo "ok: both VPNs forward end to end"
 
-echo "PASS: IS-IS, SR-MPLS, VPNv4, label stack, isolation, overlap and data plane verified"
+echo "PASS: IS-IS, SR-MPLS, TI-LFA, VPNv4, label stack, isolation, overlap and data plane verified"
